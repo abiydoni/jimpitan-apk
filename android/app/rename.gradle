@@ -1,0 +1,10 @@
+android.applicationVariants.all { variant ->
+    variant.outputs.all {
+        if (variant.name.toLowerCase().contains("debug")) {
+            outputFileName = "Jimpitan V ${variant.versionName}-debug.apk"
+        } else {
+            outputFileName = "Jimpitan-V${variant.versionName}.apk"
+        }
+    }
+}
+

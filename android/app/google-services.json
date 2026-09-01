@@ -1,0 +1,78 @@
+{
+  "project_info": {
+    "project_number": "230006065254",
+    "project_id": "jimpitan-26fda",
+    "storage_bucket": "jimpitan-26fda.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:230006065254:android:685d7561cacac3c160c5a7",
+        "android_client_info": {
+          "package_name": "jimpitan.appsbee.my.id"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "230006065254-097ka8pakrkl8u5rfcacotlcupnaiahq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "jimpitan.appsbee.my.id",
+            "certificate_hash": "48b58471b6e6591326e383e54298f9a5cf50c774"
+          }
+        },
+        {
+          "client_id": "230006065254-58tibn7j506cefmi0pnkk4n6mqjrl0sj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "jimpitan.appsbee.my.id",
+            "certificate_hash": "199f39391a20e51000f42e80b6dc89aff68dd43d"
+          }
+        },
+        {
+          "client_id": "230006065254-anul46gsculr66fdadfnh0ciet99o9s4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "jimpitan.appsbee.my.id",
+            "certificate_hash": "1ca686f45eb87145e10a468fb47ac731c6b3c0d0"
+          }
+        },
+        {
+          "client_id": "230006065254-tf9qcjufuugg3mmo7vgskr9udr320e5g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "jimpitan.appsbee.my.id",
+            "certificate_hash": "db4c0b55a59f85f21f2fc0f3e58c46e4ace2f698"
+          }
+        },
+        {
+          "client_id": "230006065254-4qbk0vee5limtfve7lajnbmpdunvmjpg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApQtXmbwgXy_5XDcgwFYONeHFwsmqdLJE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "230006065254-4qbk0vee5limtfve7lajnbmpdunvmjpg.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "230006065254-behsafovbl4f2d42dih870b4lhmgmtmd.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.jimpitan"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

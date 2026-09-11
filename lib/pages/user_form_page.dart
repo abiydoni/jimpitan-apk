@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:jimpitan/utils/image_compressor.dart';
 import 'package:intl/intl.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
+import 'package:jimpitan/widgets/app_modal_dialog.dart';
 import '../widgets/user_avatar.dart';
 
 class UserFormPage extends StatefulWidget {
@@ -175,18 +176,745 @@ class _UserFormPageState extends State<UserFormPage> {
     });
   }
 
-  void _removeMember(int index) {
-    if (_familyMembers.length > 1) {
-      setState(() {
-        final removed = _familyMembers.removeAt(index);
-        final docId = (removed['_docId'] ?? removed['docId'] ?? removed['uid'] ?? removed['id'] ?? '').toString();
-        if (docId.isNotEmpty) {
-          _deletedDocIds.add(docId);
-        }
-      });
-    } else {
-      CustomToast.show(context, 'Minimal harus ada 1 anggota keluarga');
+  String _generate10DigitJmpUniqueCode([Set<String>? existingCodes]) {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    final rand = Random();
+    String code = '';
+    do {
+      final suffix = List.generate(
+        7,
+        (_) => chars[rand.nextInt(chars.length)],
+      ).join();
+      code = 'JMP$suffix';
+    } while (existingCodes != null && existingCodes.contains(code));
+    return code;
+  }
+
+  void _showMoveMemberDialog(int memberIndex, Map<String, dynamic> member) {
+    final String memberUid = (member['_docId'] ??
+            member['docId'] ??
+            member['uid'] ??
+            member['id'] ??
+            (memberIndex == 0 ? widget.userId : null) ??
+            '')
+        .toString();
+    final String memberName = (member['namaLengkap'] ??
+            member['name'] ??
+            'Anggota ${memberIndex + 1}')
+        .toString();
+
+    if (memberUid.isEmpty) {
+      CustomToast.show(
+        context,
+        'Anggota baru harus disimpan terlebih dahulu sebelum dapat dipindah KK.',
+        isError: true,
+      );
+      return;
     }
+
+    String action = 'JOIN_EXISTING'; // 'JOIN_EXISTING' or 'SPLIT_NEW'
+    Map<String, dynamic>? selectedTargetKK;
+    final initialSH = (member['statusHubungan'] ?? '').toString();
+    String selectedStatusHubungan = [
+      'Kepala Keluarga',
+      'Istri',
+      'Anak',
+      'Anggota Keluarga',
+    ].contains(initialSH)
+        ? initialSH
+        : 'Anggota Keluarga';
+    final noKKCtrl = TextEditingController();
+    final addressCtrl = TextEditingController(text: _alamatController.text);
+    final uniqueCodeCtrl = TextEditingController(
+      text: _generate10DigitJmpUniqueCode(),
+    );
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (_, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.swap_horiz_rounded,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Pindah / Mutasi KK',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          memberName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 450,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setDialogState(
+                                  () => action = 'JOIN_EXISTING',
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: action == 'JOIN_EXISTING'
+                                        ? Colors.white
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: action == 'JOIN_EXISTING'
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ]
+                                        : [],
+                                  ),
+                                  child: Text(
+                                    'Gabung KK Lain',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontWeight: action == 'JOIN_EXISTING'
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: action == 'JOIN_EXISTING'
+                                          ? AppTheme.primaryColor
+                                          : Colors.black87,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setDialogState(
+                                  () => action = 'SPLIT_NEW',
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: action == 'SPLIT_NEW'
+                                        ? Colors.white
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: action == 'SPLIT_NEW'
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ]
+                                        : [],
+                                  ),
+                                  child: Text(
+                                    'Pecah KK Baru',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontWeight: action == 'SPLIT_NEW'
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: action == 'SPLIT_NEW'
+                                          ? AppTheme.primaryColor
+                                          : Colors.black87,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      if (action == 'JOIN_EXISTING') ...[
+                        const Text(
+                          'Pilih KK Tujuan:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FutureBuilder<List<dynamic>>(
+                          future: ApiService.getUsers(widget.villageId),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            if (snapshot.hasError) {
+                              return Text(
+                                'Error: ${snapshot.error}',
+                                style: const TextStyle(color: Colors.red),
+                              );
+                            }
+                            final allUsers = (snapshot.data ?? [])
+                                .map((e) => Map<String, dynamic>.from(e as Map))
+                                .toList();
+                            final currentKK = _noKKController.text.trim();
+                            final Map<String, Map<String, dynamic>> uniqueKKs =
+                                {};
+                            for (var u in allUsers) {
+                              final uKK = (u['noKK'] ?? '').toString().trim();
+                              final uFamId = (u['familyId'] ?? '')
+                                  .toString()
+                                  .trim();
+                              final key = uKK.isNotEmpty
+                                  ? uKK
+                                  : (uFamId.isNotEmpty
+                                      ? uFamId
+                                      : (u['id'] ?? u['uid'] ?? '').toString());
+                              if (uKK.isNotEmpty && uKK == currentKK) continue;
+                              if (u['id'] == widget.userId ||
+                                  u['uid'] == widget.userId) {
+                                continue;
+                              }
+
+                              if (!uniqueKKs.containsKey(key)) {
+                                uniqueKKs[key] = u;
+                              }
+                            }
+
+                            final kkList = uniqueKKs.values.toList();
+                            if (kkList.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  'Tidak ada KK lain yang tersedia di desa ini.',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              );
+                            }
+
+                            return GestureDetector(
+                              onTap: () async {
+                                final selected =
+                                    await showModalBottomSheet<
+                                      Map<String, dynamic>
+                                    >(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder:
+                                          (sheetCtx) => _TargetKkSearchSheet(
+                                            kkList: kkList,
+                                          ),
+                                    );
+                                if (selected != null) {
+                                  setDialogState(() {
+                                    selectedTargetKK = selected;
+                                  });
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      selectedTargetKK != null
+                                          ? AppTheme.primaryColor.withValues(
+                                            alpha: 0.05,
+                                          )
+                                          : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color:
+                                        selectedTargetKK != null
+                                            ? AppTheme.primaryColor
+                                            : Colors.grey.shade300,
+                                    width: selectedTargetKK != null ? 1.5 : 1,
+                                  ),
+                                ),
+                                child:
+                                    selectedTargetKK == null
+                                        ? Row(
+                                          children: [
+                                            Icon(
+                                              Icons.search,
+                                              color: Colors.grey.shade600,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                'Cari & Pilih KK Tujuan...',
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade600,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons
+                                                  .arrow_forward_ios_rounded,
+                                              color: Colors.grey.shade400,
+                                              size: 14,
+                                            ),
+                                          ],
+                                        )
+                                        : Row(
+                                          children: [
+                                            UserAvatar(
+                                              userData: selectedTargetKK!,
+                                              radius: 18,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    (selectedTargetKK!['name'] ??
+                                                            selectedTargetKK![
+                                                              'namaLengkap'
+                                                            ] ??
+                                                            'Tanpa Nama')
+                                                        .toString(),
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 13,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    'KK: ${(selectedTargetKK!['noKK'] ?? '-').toString()}',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color:
+                                                          AppTheme.primaryColor,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme
+                                                    .primaryColor
+                                                    .withValues(alpha: 0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                'Ganti',
+                                                style: TextStyle(
+                                                  color:
+                                                      AppTheme.primaryColor,
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Status Hubungan di KK Baru:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedStatusHubungan,
+                          decoration: _customInputDecoration(
+                            'Status Hubungan',
+                            Icons.group_outlined,
+                          ).copyWith(isDense: true),
+                          items: [
+                            'Kepala Keluarga',
+                            'Istri',
+                            'Anak',
+                            'Anggota Keluarga',
+                          ].map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(s, style: const TextStyle(fontSize: 13)),
+                            ),
+                          ).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(() => selectedStatusHubungan = val);
+                            }
+                          },
+                        ),
+                      ] else ...[
+                        const Text(
+                          'Data Kartu Keluarga Baru:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: noKKCtrl,
+                          decoration: _customInputDecoration(
+                            'Nomor KK Baru *',
+                            Icons.credit_card,
+                          ).copyWith(isDense: true),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: addressCtrl,
+                          decoration: _customInputDecoration(
+                            'Alamat Baru *',
+                            Icons.home_outlined,
+                          ).copyWith(isDense: true),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: uniqueCodeCtrl,
+                          decoration: _customInputDecoration(
+                            'Kode Unik KK Baru (Otomatis) *',
+                            Icons.qr_code_scanner,
+                          ).copyWith(
+                            isDense: true,
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.refresh, size: 20),
+                              tooltip: 'Generate Ulang Kode Unik',
+                              onPressed: () {
+                                setDialogState(() {
+                                  uniqueCodeCtrl.text =
+                                      _generate10DigitJmpUniqueCode();
+                                });
+                              },
+                            ),
+                          ),
+                          textCapitalization: TextCapitalization.characters,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(10),
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z0-9]'),
+                            ),
+                            _UpperCaseTextFormatter(),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: Colors.blue.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Kode unik 10 digit (diawali "JMP") dibuat otomatis untuk QR scan & pembayaran iuran KK baru.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue.shade800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (action == 'JOIN_EXISTING') {
+                            if (selectedTargetKK == null) {
+                              CustomToast.show(
+                                context,
+                                'Pilih KK tujuan terlebih dahulu!',
+                                isError: true,
+                              );
+                              return;
+                            }
+                          } else {
+                            if (noKKCtrl.text.trim().isEmpty) {
+                              CustomToast.show(
+                                context,
+                                'Nomor KK baru wajib diisi!',
+                                isError: true,
+                              );
+                              return;
+                            }
+                            if (addressCtrl.text.trim().isEmpty) {
+                              CustomToast.show(
+                                context,
+                                'Alamat baru wajib diisi!',
+                                isError: true,
+                              );
+                              return;
+                            }
+                          }
+
+                          setDialogState(() => isSubmitting = true);
+
+                          final bool success = await ApiService.moveUserFamily(
+                            uid: memberUid,
+                            action: action,
+                            targetFamilyId: selectedTargetKK?['familyId'],
+                            targetUid:
+                                selectedTargetKK?['id'] ??
+                                selectedTargetKK?['uid'],
+                            statusHubungan: action == 'JOIN_EXISTING'
+                                ? selectedStatusHubungan
+                                : 'Kepala Keluarga',
+                            newNoKK: action == 'SPLIT_NEW'
+                                ? noKKCtrl.text.trim()
+                                : null,
+                            newAddress: action == 'SPLIT_NEW'
+                                ? addressCtrl.text.trim()
+                                : null,
+                            newUniqueCode:
+                                action == 'SPLIT_NEW' &&
+                                        uniqueCodeCtrl.text.trim().isNotEmpty
+                                    ? uniqueCodeCtrl.text.trim()
+                                    : null,
+                            villageId: widget.villageId,
+                          );
+
+                          if (success) {
+                            if (dialogCtx.mounted) {
+                              Navigator.pop(dialogCtx);
+                            }
+                            if (!mounted) return;
+                            CustomToast.show(
+                              context,
+                              'Berhasil memindahkan warga',
+                            );
+                            setState(() {
+                              _familyMembers.removeAt(memberIndex);
+                            });
+                            if (_familyMembers.isEmpty) {
+                              Navigator.pop(context, true);
+                            }
+                          } else {
+                            if (dialogCtx.mounted) {
+                              setDialogState(() => isSubmitting = false);
+                            }
+                            if (!mounted) return;
+                            CustomToast.show(
+                              context,
+                              'Gagal memindahkan warga. Silakan coba lagi.',
+                              isError: true,
+                            );
+                          }
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Proses Pindah'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _removeMember(int index) {
+    if (_familyMembers.length <= 1) {
+      CustomToast.show(context, 'Minimal harus ada 1 anggota keluarga');
+      return;
+    }
+
+    final member = _familyMembers[index];
+    final memberName =
+        (member['namaLengkap'] ??
+                member['name'] ??
+                'Anggota ${index + 1}')
+            .toString();
+
+    showDialog(
+      context: context,
+      builder:
+          (dialogCtx) => AppModalDialog(
+            title: 'Hapus Anggota',
+            headerIcon: Icons.delete_outline,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Apakah Anda yakin ingin menghapus $memberName dari Kartu Keluarga ini?',
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Perubahan akan tersimpan saat Anda menekan tombol "Simpan Perubahan".',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(dialogCtx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Batal'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(dialogCtx);
+                          setState(() {
+                            final removed = _familyMembers.removeAt(index);
+                            final docId =
+                                (removed['_docId'] ??
+                                        removed['docId'] ??
+                                        removed['uid'] ??
+                                        removed['id'] ??
+                                        '')
+                                    .toString();
+                            if (docId.isNotEmpty) {
+                              _deletedDocIds.add(docId);
+                            }
+                          });
+                          CustomToast.show(
+                            context,
+                            'Anggota $memberName dihapus dari formulir',
+                          );
+                        },
+                        child: const Text(
+                          'Hapus',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+    );
   }
 
   Future<void> _saveData() async {
@@ -692,15 +1420,52 @@ class _UserFormPageState extends State<UserFormPage> {
                     ),
                   ],
                 ),
-                if (_familyMembers.length > 1)
-                  IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      color: Colors.redAccent,
-                    ),
-                    onPressed: () => _removeMember(index),
-                    tooltip: 'Hapus Anggota',
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if ((member['_docId'] ??
+                            member['docId'] ??
+                            member['uid'] ??
+                            member['id'] ??
+                            (index == 0 ? widget.userId : null)) !=
+                        null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4.0),
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showMoveMemberDialog(index, member),
+                          icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+                          label: const Text(
+                            'Pindah KK',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: BorderSide(
+                              color: AppTheme.primaryColor.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_familyMembers.length > 1)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.redAccent,
+                        ),
+                        onPressed: () => _removeMember(index),
+                        tooltip: 'Hapus Anggota',
+                      ),
+                  ],
+                ),
               ],
             ),
             const Divider(height: 32),
@@ -1139,6 +1904,255 @@ class _UserFormPageState extends State<UserFormPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TargetKkSearchSheet extends StatefulWidget {
+  final List<Map<String, dynamic>> kkList;
+
+  const _TargetKkSearchSheet({required this.kkList});
+
+  @override
+  State<_TargetKkSearchSheet> createState() => _TargetKkSearchSheetState();
+}
+
+class _TargetKkSearchSheetState extends State<_TargetKkSearchSheet> {
+  late List<Map<String, dynamic>> _filtered;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = widget.kkList;
+  }
+
+  void _onSearch(String query) {
+    setState(() {
+      _query = query.toLowerCase().trim();
+      if (_query.isEmpty) {
+        _filtered = widget.kkList;
+      } else {
+        _filtered =
+            widget.kkList.where((kk) {
+              final name =
+                  (kk['name'] ?? kk['namaLengkap'] ?? '')
+                      .toString()
+                      .toLowerCase();
+              final noKK = (kk['noKK'] ?? '').toString().toLowerCase();
+              final nik = (kk['nik'] ?? '').toString().toLowerCase();
+              final address =
+                  (kk['address'] ?? kk['alamat'] ?? '')
+                      .toString()
+                      .toLowerCase();
+              return name.contains(_query) ||
+                  noKK.contains(_query) ||
+                  nik.contains(_query) ||
+                  address.contains(_query);
+            }).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.8,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.search,
+                        color: AppTheme.primaryColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Pilih KK Tujuan',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  autofocus: true,
+                  onChanged: _onSearch,
+                  decoration: InputDecoration(
+                    hintText:
+                        'Cari nama kepala keluarga, No KK, NIK, alamat...',
+                    prefixIcon: const Icon(Icons.search, color: Colors.black45),
+                    suffixIcon:
+                        _query.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () => _onSearch(''),
+                            )
+                            : null,
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: AppTheme.primaryColor,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              Expanded(
+                child:
+                    _filtered.isEmpty
+                        ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.search_off_rounded,
+                                size: 48,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'KK tidak ditemukan',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                        : ListView.separated(
+                          controller: scrollController,
+                          itemCount: _filtered.length,
+                          separatorBuilder:
+                              (context, index) =>
+                                  const Divider(height: 1, indent: 68),
+                          itemBuilder: (context, index) {
+                            final kk = _filtered[index];
+                            final name =
+                                (kk['name'] ??
+                                        kk['namaLengkap'] ??
+                                        'Tanpa Nama')
+                                    .toString();
+                            final noKk = (kk['noKK'] ?? '-').toString();
+                            final address =
+                                (kk['address'] ?? kk['alamat'] ?? '')
+                                    .toString();
+
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              leading: UserAvatar(userData: kk, radius: 22),
+                              title: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'No KK: $noKk',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  if (address.isNotEmpty)
+                                    Text(
+                                      address,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey,
+                              ),
+                              onTap: () => Navigator.pop(context, kk),
+                            );
+                          },
+                        ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
     );
   }
 }

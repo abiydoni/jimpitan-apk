@@ -194,6 +194,10 @@ class ApiService {
 
   static final Map<String, List<dynamic>> _usersCache = {};
 
+  static void clearUsersCache() {
+    _usersCache.clear();
+  }
+
   static Future<List<dynamic>> getUsers(
     String villageId, [
     String? status,
@@ -440,6 +444,7 @@ class ApiService {
         headers: await _getHeaders(),
         body: json.encode(data),
       );
+      _usersCache.clear();
       if (response.statusCode != 200) {
         throw Exception('Status ${response.statusCode}: ${response.body}\nPayload: ${json.encode(data)}');
       }
@@ -457,6 +462,7 @@ class ApiService {
         headers: await _getHeaders(),
         body: json.encode(payload),
       );
+      _usersCache.clear();
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return data['success'] == true;
@@ -1120,16 +1126,63 @@ class ApiService {
   // Users & Master Data
   // getUsers is defined above
 
-  static Future<bool> deleteUser(String familyId) async {
+  static Future<bool> deleteUser(
+    String familyId, {
+    String? noKK,
+    String? villageId,
+  }) async {
     try {
-      // Menghapus familyId berarti menghapus semua user dalam keluarga tersebut
+      String url = '$baseUrl/master/users/family/$familyId';
+      final queryParams = <String, String>{};
+      if (noKK != null && noKK.isNotEmpty) queryParams['noKK'] = noKK;
+      if (villageId != null && villageId.isNotEmpty) queryParams['villageId'] = villageId;
+      if (queryParams.isNotEmpty) {
+        final uri = Uri.parse(url);
+        url = uri.replace(queryParameters: queryParams).toString();
+      }
+
       final response = await _delete(
-        Uri.parse('$baseUrl/master/users/family/$familyId'),
+        Uri.parse(url),
         headers: await _getHeaders(), // Amankan dengan token
       );
+      _usersCache.clear();
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Error deleting user: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> moveUserFamily({
+    required String uid,
+    required String action, // 'JOIN_EXISTING' or 'SPLIT_NEW'
+    String? targetFamilyId,
+    String? targetUid,
+    String? statusHubungan,
+    String? newNoKK,
+    String? newAddress,
+    String? newUniqueCode,
+    String? villageId,
+  }) async {
+    try {
+      final response = await _post(
+        Uri.parse('$baseUrl/master/users/$uid/move-family'),
+        headers: await _getHeaders(),
+        body: json.encode({
+          'action': action,
+          'targetFamilyId': targetFamilyId,
+          'targetUid': targetUid,
+          'statusHubungan': statusHubungan,
+          'newNoKK': newNoKK,
+          'newAddress': newAddress,
+          'newUniqueCode': newUniqueCode,
+          'villageId': villageId,
+        }),
+      );
+      _usersCache.clear();
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error moving user family: $e');
       return false;
     }
   }
@@ -1145,6 +1198,7 @@ class ApiService {
         headers: await _getHeaders(), // Amankan dengan token
         body: json.encode(data),
       );
+      _usersCache.clear();
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Error updating user status: $e');

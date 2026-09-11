@@ -68,6 +68,7 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _loadData() {
+    ApiService.clearUsersCache();
     setState(() {
       _activeUsersFuture = ApiService.getUsers(_currentVillageId, 'ACTIVE');
       _pendingUsersFuture = ApiService.getUsers(_currentVillageId, 'PENDING');
@@ -604,7 +605,7 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   Future<void> _showUserFormDialog([String? docId, Map<String, dynamic>? user]) async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => UserFormPage(
@@ -615,9 +616,7 @@ class _UsersPageState extends State<UsersPage> {
         ),
       ),
     );
-    if (result == true) {
-      _loadData();
-    }
+    _loadData();
   }
 
   void _showDetailDialog(Map<String, dynamic> user) {
@@ -973,7 +972,10 @@ class _UsersPageState extends State<UsersPage> {
               children: roles
                   .map(
                     (r) => Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryColor.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
@@ -1313,7 +1315,7 @@ class _UsersPageState extends State<UsersPage> {
     );
   }
 
-  void _deleteUser(String docId, {bool isPending = false}) async {
+  void _deleteUser(String docId, {bool isPending = false, String? noKK}) async {
     showDialog(
       context: context,
       builder: (context) => AppModalDialog(
@@ -1344,12 +1346,16 @@ class _UsersPageState extends State<UsersPage> {
                           await ApiService.saveUserFamily({
                             'familyId': '',
                             'uniqueCode': '',
-                            'villageId': '',
+                            'villageId': _currentVillageId,
                             'familyMembers': [],
                             'deletedDocIds': [docId],
                           });
                         } else {
-                          await ApiService.deleteUser(docId);
+                          await ApiService.deleteUser(
+                            docId,
+                            noKK: noKK,
+                            villageId: _currentVillageId,
+                          );
                         }
                         _loadData();
                       } catch (e) {
@@ -1655,6 +1661,11 @@ class _UsersPageState extends State<UsersPage> {
                 ),
               ),
             IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadData,
+              tooltip: 'Muat Ulang Data',
+            ),
+            IconButton(
               icon: const Icon(Icons.picture_as_pdf_outlined),
               onPressed: _exportAllResidentsPdf,
               tooltip: 'Export Semua Warga PDF',
@@ -1735,7 +1746,19 @@ class _UsersPageState extends State<UsersPage> {
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("Belum ada data warga di desa ini."));
+          return RefreshIndicator(
+            onRefresh: () async {
+              _loadData();
+              await _activeUsersFuture;
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 100),
+                Center(child: Text("Belum ada data warga di desa ini.")),
+              ],
+            ),
+          );
         }
 
         var allDocs = snapshot.data!;
@@ -1769,11 +1792,25 @@ class _UsersPageState extends State<UsersPage> {
             };
           } else {
             // Dokumen dengan format BARU (terpisah per individu)
-            final familyId = data['familyId'] ?? docId;
+            final rawNoKK = data['noKK']?.toString().trim();
+            final rawFamId = data['familyId']?.toString().trim();
+            final bool hasValidKK = rawNoKK != null &&
+                rawNoKK.isNotEmpty &&
+                rawNoKK != '-' &&
+                rawNoKK != '0' &&
+                rawNoKK.toLowerCase() != 'null' &&
+                rawNoKK.length >= 4;
+
+            final String familyId = hasValidKK
+                ? 'KK_$rawNoKK'
+                : ((rawFamId != null && rawFamId.isNotEmpty)
+                    ? rawFamId
+                    : docId);
 
             if (!groupedFamilies.containsKey(familyId)) {
               groupedFamilies[familyId] = {
-                'docId': familyId,
+                'docId': (rawFamId != null && rawFamId.isNotEmpty) ? rawFamId : docId,
+                'familyId': (rawFamId != null && rawFamId.isNotEmpty) ? rawFamId : docId,
                 'noKK': data['noKK'],
                 'name': '',
                 'phone': data['phone'] ?? data['phoneNumber'],
@@ -1821,6 +1858,16 @@ class _UsersPageState extends State<UsersPage> {
                 groupedFamilies[familyId]!['name'] == '') {
               groupedFamilies[familyId]!['name'] = data['name'];
               groupedFamilies[familyId]!['roles'] = data['roles'];
+              if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
+                groupedFamilies[familyId]!['phone'] = data['phone'];
+              }
+              if (data['alamat'] != null && data['alamat'].toString().isNotEmpty) {
+                groupedFamilies[familyId]!['alamat'] = data['alamat'];
+              }
+              if (rawFamId != null && rawFamId.isNotEmpty) {
+                groupedFamilies[familyId]!['docId'] = rawFamId;
+                groupedFamilies[familyId]!['familyId'] = rawFamId;
+              }
             }
           }
         }
@@ -1879,121 +1926,125 @@ class _UsersPageState extends State<UsersPage> {
             widget.currentUserRoles?.contains('SUPER_ADMIN') == true ||
             widget.currentUserRoles?.contains('ADMIN_DESA') == true;
 
-        return Column(
-          children: [
-            if (isActiveTab && _searchQuery.isEmpty)
-              _buildStatisticsCard(totalWarga, totalKK, totalLakiLaki, totalPerempuan),
-            if (canPrintQR)
-              CheckboxListTile(
-                title: const Text(
-                  'Pilih Semua Warga',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                value:
-                    _selectedUsersForQR.length == users.length &&
-                    users.isNotEmpty,
-                onChanged: (bool? value) {
-                  setState(() {
-                    if (value == true) {
-                      for (var data in users) {
-                        _selectedUsersForQR[data['docId']] = {
-                          'name': data['name'] ?? 'Tanpa Nama',
-                          'code': data['uniqueCode'] ?? 'Loading...',
-                        };
+        return RefreshIndicator(
+          onRefresh: () async {
+            _loadData();
+            await _activeUsersFuture;
+          },
+          child: Column(
+            children: [
+              if (isActiveTab && _searchQuery.isEmpty)
+                _buildStatisticsCard(totalWarga, totalKK, totalLakiLaki, totalPerempuan),
+              if (canPrintQR)
+                CheckboxListTile(
+                  title: const Text(
+                    'Pilih Semua Warga',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  value:
+                      _selectedUsersForQR.length == users.length &&
+                      users.isNotEmpty,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      if (value == true) {
+                        for (var data in users) {
+                          _selectedUsersForQR[data['docId']] = {
+                            'name': data['name'] ?? 'Tanpa Nama',
+                            'code': data['uniqueCode'] ?? 'Loading...',
+                          };
+                        }
+                      } else {
+                        _selectedUsersForQR.clear();
                       }
-                    } else {
-                      _selectedUsersForQR.clear();
-                    }
-                  });
-                },
-                activeColor: AppTheme.primaryColor,
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-              ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: users.length,
-                itemBuilder: (context, index) {
-                  final user = users[index];
-                  final docId = user['docId'];
-
-                  final List<String> userRoles = (user['roles'] is List)
-                      ? (user['roles'] as List)
-                            .where((r) => r != null)
-                            .map((r) => r.toString())
-                            .toList()
-                      : [];
-
-                  final String name = user['name'] ?? 'Tanpa Nama';
-                  final String phone =
-                      (user['phone'] ?? user['phoneNumber'] ?? '').toString();
-
-                  // Widget badge role untuk trailing
-                  Widget roleBadges = Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: userRoles
-                        .where((r) => r.isNotEmpty)
-                        .map(
-                          (r) => Container(
-                            margin: const EdgeInsets.only(bottom: 3),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: r == 'SUPER_ADMIN'
-                                  ? Colors.purple.shade50
-                                  : r == 'ADMIN_DESA'
-                                  ? Colors.orange.shade50
-                                  : AppTheme.primaryColor.withValues(
-                                      alpha: 0.07,
-                                    ),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: r == 'SUPER_ADMIN'
-                                    ? Colors.purple.shade200
-                                    : r == 'ADMIN_DESA'
-                                    ? Colors.orange.shade200
-                                    : AppTheme.primaryColor.withValues(
-                                        alpha: 0.2,
-                                      ),
-                              ),
-                            ),
-                            child: Text(
-                              r,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: r == 'SUPER_ADMIN'
-                                    ? Colors.purple.shade700
-                                    : r == 'ADMIN_DESA'
-                                    ? Colors.orange.shade700
-                                    : AppTheme.primaryColor,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  );
-
-                  final List<Map<String, dynamic>> family =
-                      List<Map<String, dynamic>>.from(
-                        user['familyMembers'] ?? [],
+                    });
+                  },
+                  activeColor: AppTheme.primaryColor,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                ),
+              Expanded(
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: users.length,
+                  itemBuilder: (context, index) {
+                    final user = users[index];
+                    final docId = user['docId'];
+                    final List<Map<String, dynamic>> family =
+                        List<Map<String, dynamic>>.from(
+                          user['familyMembers'] ?? [],
+                        );
+                    Map<String, dynamic>? head;
+                    if (family.isNotEmpty) {
+                      head = family.firstWhere(
+                        (m) =>
+                            m['statusHubungan'] == 'Kepala Keluarga' &&
+                            (m['statusHidup'] == 'Hidup' ||
+                                m['statusHidup'] == 'Aktif' ||
+                                m['statusHidup'] == null),
+                        orElse: () => family.first,
                       );
-                  Map<String, dynamic>? head;
-                  if (family.isNotEmpty) {
-                    head = family.firstWhere(
-                      (m) =>
-                          m['statusHubungan'] == 'Kepala Keluarga' &&
-                          (m['statusHidup'] == 'Hidup' ||
-                              m['statusHidup'] == 'Aktif' ||
-                              m['statusHidup'] == null),
-                      orElse: () => family.first,
-                    );
-                  }
+                    }
 
-                  return Container(
+                    final List<String> userRoles = (user['roles'] is List)
+                        ? (user['roles'] as List)
+                              .where((r) => r != null)
+                              .map((r) => r.toString())
+                              .toList()
+                        : [];
+
+                    final String name = user['name'] ?? 'Tanpa Nama';
+                    final String phone =
+                        (user['phone'] ?? user['phoneNumber'] ?? '').toString();
+
+                    Widget roleBadges = Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: userRoles
+                          .where((r) => r.isNotEmpty)
+                          .map(
+                            (r) => Container(
+                              margin: const EdgeInsets.only(bottom: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: r == 'SUPER_ADMIN'
+                                    ? Colors.purple.shade50
+                                    : r == 'ADMIN_DESA'
+                                    ? Colors.orange.shade50
+                                    : AppTheme.primaryColor.withValues(
+                                        alpha: 0.07,
+                                      ),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: r == 'SUPER_ADMIN'
+                                      ? Colors.purple.shade200
+                                      : r == 'ADMIN_DESA'
+                                      ? Colors.orange.shade200
+                                      : AppTheme.primaryColor.withValues(
+                                          alpha: 0.2,
+                                        ),
+                                ),
+                              ),
+                              child: Text(
+                                r,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: r == 'SUPER_ADMIN'
+                                      ? Colors.purple.shade700
+                                      : r == 'ADMIN_DESA'
+                                      ? Colors.orange.shade700
+                                      : AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    );
+
+                    return Container(
                     margin: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 8,
@@ -2219,7 +2270,11 @@ class _UsersPageState extends State<UsersPage> {
                                             Icons.delete,
                                             color: Colors.red,
                                           ),
-                                          onPressed: () => _deleteUser(docId, isPending: !isActiveTab),
+                                          onPressed: () => _deleteUser(
+                                            docId,
+                                            isPending: !isActiveTab,
+                                            noKK: user['noKK']?.toString(),
+                                          ),
                                         ),
                                         const Text(
                                           'Hapus',
@@ -2286,10 +2341,11 @@ class _UsersPageState extends State<UsersPage> {
               ),
             ),
           ],
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildStatisticsCard(int warga, int kk, int laki, int perempuan) {
     return Container(

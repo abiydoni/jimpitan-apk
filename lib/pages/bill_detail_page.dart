@@ -64,6 +64,11 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
       setState(() => _isLoading = true);
     }
     try {
+      _payments.clear();
+      _paymentHistory.clear();
+      _exemptedTariffIds.clear();
+      _myExemptions.clear();
+
       // 1. Fetch active tariffs
       final allTariffs = await ApiService.getTariffs(widget.villageId);
       _tariffs = List<Map<String, dynamic>>.from(allTariffs.where((t) => t['isActive'] == true));

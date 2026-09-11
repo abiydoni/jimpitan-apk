@@ -59,6 +59,13 @@ final RouteObserver<ModalRoute<void>> routeObserver =
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ),
+  );
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -188,6 +195,7 @@ class _AplikasiJimpitanState extends State<AplikasiJimpitan> {
               elevation: 0,
               scrolledUnderElevation: 0,
               centerTitle: false,
+              systemOverlayStyle: SystemUiOverlayStyle.dark,
               titleTextStyle: TextStyle(
                 color: Color(0xFF1E293B),
                 fontSize: 20,
@@ -1329,6 +1337,8 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
+  Timer? _presenceHeartbeatTimer;
+
   @override
   void initState() {
     super.initState();
@@ -1351,6 +1361,11 @@ class _DashboardPageState extends State<DashboardPage>
     _fetchTotalUnreadCount();
     _unreadTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (mounted) _fetchTotalUnreadCount();
+    });
+
+    // Heartbeat online status setiap 45 detik selama app aktif
+    _presenceHeartbeatTimer = Timer.periodic(const Duration(seconds: 45), (timer) {
+      if (mounted) _updatePresence(true);
     });
 
     // Inisialisasi OneSignal dan Login setelah frame pertama agar widget sudah siap
@@ -1471,6 +1486,7 @@ class _DashboardPageState extends State<DashboardPage>
     routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _unreadTimer?.cancel();
+    _presenceHeartbeatTimer?.cancel();
     _updatePresence(false);
     super.dispose();
   }
@@ -1516,7 +1532,8 @@ class _DashboardPageState extends State<DashboardPage>
       _updatePresence(true);
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.detached) {
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
       _updatePresence(false);
     }
   }
@@ -1667,10 +1684,15 @@ class _DashboardPageState extends State<DashboardPage>
               activeBody = const Center(child: Text("Halaman belum tersedia"));
             }
 
+            final bool isDarkHeader = _currentTabId == 'home';
             return AnnotatedRegion<SystemUiOverlayStyle>(
-              value: _currentTabId == 'home'
-                  ? SystemUiOverlayStyle.light
-                  : SystemUiOverlayStyle.dark,
+              value: SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness:
+                    isDarkHeader ? Brightness.light : Brightness.dark,
+                statusBarBrightness:
+                    isDarkHeader ? Brightness.dark : Brightness.light,
+              ),
               child: PopScope(
                 canPop: false,
                 onPopInvokedWithResult: (bool didPop, Object? result) {
@@ -2202,39 +2224,44 @@ class _DashboardPageState extends State<DashboardPage>
                                 clipBehavior: Clip.none,
                                 children: [
                                   PopupMenuButton<String>(
-                                    offset: const Offset(0, 40),
+                                    offset: const Offset(0, 45),
                                     constraints: const BoxConstraints(
-                                      minWidth: 280,
-                                      maxWidth: 280,
+                                      minWidth: 320,
+                                      maxWidth: 350,
                                     ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
                                     ),
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    elevation: 4,
-                                    tooltip: 'Notifikasi',
+                                    color: Colors.white,
+                                    elevation: 8,
+                                    tooltip: 'Notifikasi Pesan',
                                     onSelected: (value) {
                                       if (value.startsWith('open_chat_room:')) {
                                         final parts = value.split(':');
                                         if (parts.length >= 4) {
                                           final roomId = parts[1];
-                                          final senderId = parts[2];
+                                          final rawSenderId = parts[2];
                                           final senderName = parts
                                               .sublist(3)
                                               .join(':');
+                                          final targetUid = (rawSenderId.isEmpty ||
+                                                  rawSenderId == 'null' ||
+                                                  roomId.startsWith('GROUP_'))
+                                              ? null
+                                              : rawSenderId;
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) =>
                                                   ChatRoomPage(
                                                     villageId:
-                                                        _currentVillageId!,
+                                                        _currentVillageId ?? '',
                                                     roomId: roomId,
                                                     roomName: senderName,
-                                                    targetUid: senderId,
+                                                    targetUid: targetUid,
                                                   ),
                                             ),
-                                          );
+                                          ).then((_) => _fetchTotalUnreadCount());
                                         }
                                       } else if (value == 'open_chat' &&
                                           _currentVillageId != null) {
@@ -2247,7 +2274,7 @@ class _DashboardPageState extends State<DashboardPage>
                                                   menuPermissions['chat'] ?? {},
                                             ),
                                           ),
-                                        );
+                                        ).then((_) => _fetchTotalUnreadCount());
                                       }
                                     },
                                     itemBuilder: (context) {
@@ -2256,13 +2283,26 @@ class _DashboardPageState extends State<DashboardPage>
                                         items.add(
                                           const PopupMenuItem<String>(
                                             enabled: false,
-                                            height: 32,
+                                            height: 48,
                                             padding: EdgeInsets.symmetric(
                                               horizontal: 16,
                                             ),
-                                            child: Text(
-                                              'Belum ada pesan baru',
-                                              style: TextStyle(fontSize: 12),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.notifications_off_outlined,
+                                                  size: 18,
+                                                  color: Colors.grey,
+                                                ),
+                                                SizedBox(width: 10),
+                                                Text(
+                                                  'Tidak ada pesan baru',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         );
@@ -2270,19 +2310,49 @@ class _DashboardPageState extends State<DashboardPage>
                                         items.add(
                                           PopupMenuItem<String>(
                                             enabled: false,
-                                            height: 32,
+                                            height: 40,
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 16,
                                             ),
-                                            child: Text(
-                                              'Anda memiliki $unreadCount pesan baru',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                const Text(
+                                                  'Pesan Baru',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.primaryColor
+                                                        .withValues(alpha: 0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(10),
+                                                  ),
+                                                  child: Text(
+                                                    '$unreadCount baru',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: AppTheme.primaryColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         );
+                                        items.add(const PopupMenuDivider(height: 4));
 
                                         for (var detail in _unreadDetails) {
                                           final senderName =
@@ -2298,6 +2368,35 @@ class _DashboardPageState extends State<DashboardPage>
                                           final roomId =
                                               detail['roomId']?.toString() ??
                                               senderUid;
+                                          final isGroup =
+                                              roomId.startsWith('GROUP_') ||
+                                              detail['type'] == 'GROUP';
+                                          final count =
+                                              (detail['unreadCount'] as num?)
+                                                  ?.toInt() ??
+                                              1;
+
+                                          String timeText = '';
+                                          final rawDate = detail['createdAt'];
+                                          if (rawDate != null) {
+                                            final dt = DateTime.tryParse(
+                                              rawDate.toString(),
+                                            )?.toLocal();
+                                            if (dt != null) {
+                                              final diff =
+                                                  DateTime.now().difference(dt);
+                                              if (diff.inMinutes < 1) {
+                                                timeText = 'Baru saja';
+                                              } else if (diff.inMinutes < 60) {
+                                                timeText = '${diff.inMinutes}m';
+                                              } else if (diff.inHours < 24) {
+                                                timeText =
+                                                    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                                              } else {
+                                                timeText = '${dt.day}/${dt.month}';
+                                              }
+                                            }
+                                          }
 
                                           items.add(
                                             PopupMenuItem<String>(
@@ -2305,31 +2404,125 @@ class _DashboardPageState extends State<DashboardPage>
                                                   'open_chat_room:$roomId:$senderUid:$senderName',
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                    horizontal: 16,
+                                                    horizontal: 12,
                                                     vertical: 8,
                                                   ),
-                                              child: Column(
+                                              child: Row(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  Text(
-                                                    senderName,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                                  CircleAvatar(
+                                                    radius: 18,
+                                                    backgroundColor: isGroup
+                                                        ? AppTheme.primaryColor
+                                                            .withValues(alpha: 0.15)
+                                                        : Colors.grey.shade200,
+                                                    child: Icon(
+                                                      isGroup
+                                                          ? Icons.groups
+                                                          : Icons.person,
+                                                      size: 20,
+                                                      color: isGroup
+                                                          ? AppTheme.primaryColor
+                                                          : Colors.grey.shade700,
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    message,
-                                                    style: const TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.black54,
+                                                  const SizedBox(width: 10),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Row(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                          children: [
+                                                            Expanded(
+                                                              child: Text(
+                                                                senderName,
+                                                                style:
+                                                                    const TextStyle(
+                                                                      fontSize: 12,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
+                                                                      color: Colors
+                                                                          .black87,
+                                                                    ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                            if (timeText.isNotEmpty)
+                                                              Text(
+                                                                timeText,
+                                                                style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  color: Colors
+                                                                      .grey
+                                                                      .shade500,
+                                                                ),
+                                                              ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 3),
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Text(
+                                                                message,
+                                                                style: TextStyle(
+                                                                  fontSize: 11,
+                                                                  color: Colors
+                                                                      .grey
+                                                                      .shade700,
+                                                                ),
+                                                                maxLines: 2,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                            if (count > 1) ...[
+                                                              const SizedBox(width: 6),
+                                                              Container(
+                                                                padding:
+                                                                    const EdgeInsets
+                                                                        .symmetric(
+                                                                      horizontal: 5,
+                                                                      vertical: 1,
+                                                                    ),
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                      color: Colors
+                                                                          .red
+                                                                          .shade500,
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            10,
+                                                                          ),
+                                                                    ),
+                                                                child: Text(
+                                                                  count.toString(),
+                                                                  style:
+                                                                      const TextStyle(
+                                                                        fontSize: 9,
+                                                                        fontWeight:
+                                                                            FontWeight.bold,
+                                                                        color: Colors
+                                                                            .white,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ],
+                                                        ),
+                                                      ],
                                                     ),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ],
                                               ),

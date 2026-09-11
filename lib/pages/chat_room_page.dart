@@ -506,28 +506,35 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                     Color statusColor = Colors.grey;
                     if (_targetUserData != null) {
                       final data = _targetUserData!;
-                      final isOnline = data['isOnline'] == true;
+                      bool isOnline = data['isOnline'] == true;
+                      final ts = data['lastSeen'];
+                      DateTime? lastSeenDate;
+                      if (ts != null) {
+                        lastSeenDate = DateTime.tryParse(ts.toString())?.toLocal();
+                      }
+                      if (isOnline) {
+                        if (lastSeenDate != null &&
+                            DateTime.now().difference(lastSeenDate).inSeconds > 150) {
+                          isOnline = false;
+                        }
+                      }
                       if (isOnline) {
                         statusText = 'Online';
                         statusColor = Colors.green;
                       } else {
-                        final ts = data['lastSeen'];
-                        if (ts != null) {
-                          final date =
-                              DateTime.tryParse(ts.toString())?.toLocal() ??
-                              DateTime.now();
-                          final diff = DateTime.now().difference(date);
+                        if (lastSeenDate != null) {
+                          final diff = DateTime.now().difference(lastSeenDate);
                           if (diff.inMinutes < 1) {
                             statusText = 'Baru saja';
                           } else if (diff.inHours < 24) {
                             statusText =
-                                'Terakhir dilihat pukul ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                                'Terakhir dilihat pukul ${lastSeenDate.hour.toString().padLeft(2, '0')}:${lastSeenDate.minute.toString().padLeft(2, '0')}';
                           } else if (diff.inDays < 7) {
                             statusText =
                                 'Terakhir dilihat ${diff.inDays} hari yang lalu';
                           } else {
                             statusText =
-                                'Terakhir dilihat ${date.day}/${date.month}/${date.year}';
+                                'Terakhir dilihat ${lastSeenDate.day}/${lastSeenDate.month}/${lastSeenDate.year}';
                           }
                         } else {
                           statusText = 'Offline';

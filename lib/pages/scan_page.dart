@@ -563,147 +563,7 @@ class _ScanPageState extends State<ScanPage> {
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(
-        title: const Text(
-          'Scan QR Jimpitan',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A1A2E),
-        elevation: 1,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Kartu Statistik & Jam ──────────────────────────────
-            _buildScanStatsPanel(),
-
-            // ── Area Kartu Kamera ──
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-                decoration: BoxDecoration(
-                  color: const Color(
-                    0xFF1E2538,
-                  ), // Warna kartu kamera slate gelap
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 15,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // 1. Preview Kamera
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: MobileScanner(
-                                controller: _controller,
-                                onDetect: _processScan,
-                              ),
-                            ),
-
-                            // 2. Batas sudut scan putih di tengah
-                            Positioned.fill(
-                              child: CustomPaint(
-                                painter: _ScannerCardOverlayPainter(),
-                              ),
-                            ),
-
-                            // 3. Tombol Flash di pojok kanan atas preview
-                            Positioned(
-                              top: 16,
-                              right: 16,
-                              child: ValueListenableBuilder<MobileScannerState>(
-                                valueListenable: _controller,
-                                builder: (context, state, child) {
-                                  final isFlashOn = state.torchState == TorchState.on;
-                                  return ClipOval(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF1A1A2E),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: IconButton(
-                                        padding: const EdgeInsets.all(8),
-                                        constraints: const BoxConstraints(),
-                                        icon: Icon(
-                                          isFlashOn
-                                              ? Icons.flash_on
-                                              : Icons.flash_off,
-                                          color: isFlashOn
-                                              ? Colors.amberAccent
-                                              : Colors.white70,
-                                        ),
-                                        iconSize: 22.0,
-                                        onPressed: () {
-                                          _controller.toggleTorch();
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-
-                            // 4. Loading overlay
-                            if (_isProcessing)
-                              Container(
-                                color: Colors.black.withValues(alpha: 0.5),
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // 5. Teks instruksi di bawah area kamera (di dalam card)
-                    const SizedBox(height: 14),
-                    Text(
-                      _isProcessing
-                          ? 'Memproses...'
-                          : 'Arahkan kamera ke QR Code Warga',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Panel statistik (di luar kamera, latar gelap)
-  Widget _buildScanStatsPanel() {
+  Widget _buildHeader(BuildContext context) {
     final docs = _todayScans;
     int totalAmount = 0;
     for (var doc in docs) {
@@ -711,159 +571,407 @@ class _ScanPageState extends State<ScanPage> {
           ((doc as Map<String, dynamic>)['amount'] as num?)?.toInt() ?? 0;
     }
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Column(
-        children: [
-          // Jam & Tanggal
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.access_time, color: Colors.white54, size: 14),
-                const SizedBox(width: 6),
-                Text(
-                  '${_getRealtimeDate(_currentTime)} • ${_getRealtimeTime(_currentTime)}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Background Gradient, Shadow & Lengkungan Bawah
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.primaryColor,
+                AppTheme.secondaryColor,
               ],
             ),
-          ),
-
-          // Kartu statistik
-          if (_isLoadingScans)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: CircularProgressIndicator(
-                color: Colors.white54,
-                strokeWidth: 2,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryColor.withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
-            )
-          else
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15),
+            ],
+          ),
+          child: Column(
+            children: [
+              SizedBox(height: topPadding + 10),
+              // Top Bar Navigation
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.maybePop(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Warga terscan
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.people,
-                                  color: Colors.white54,
-                                  size: 13,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Warga',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Scan QR Jimpitan',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${docs.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 28,
-                        color: Colors.white24,
-                        margin: const EdgeInsets.symmetric(horizontal: 12),
-                      ),
-                      // Total terkumpul
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.account_balance_wallet,
-                                  color: Colors.greenAccent,
-                                  size: 13,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Terkumpul',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Rp ${NumberFormat('#,###', 'id_ID').format(totalAmount)}',
-                              style: const TextStyle(
-                                color: Colors.greenAccent,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Tombol detail
-                      IconButton(
-                        onPressed: () => _showDetailModal(docs),
-                        icon: const Icon(Icons.list_alt, color: Colors.white),
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
                           ),
-                          padding: const EdgeInsets.all(8),
+                          Text(
+                            '${_getRealtimeDate(_currentTime)} • ${_getRealtimeTime(_currentTime)}',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _showDetailModal(docs),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.history_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Kartu Statistik Glassmorphism di dalam Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: _isLoadingScans
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white70,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                // Warga terscan
+                                Expanded(
+                                  flex: 2,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.people_alt_outlined,
+                                            color: Colors.white.withValues(alpha: 0.85),
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'Warga',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(alpha: 0.85),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        '${docs.length}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 28,
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                                ),
+                                // Total terkumpul
+                                Expanded(
+                                  flex: 3,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.account_balance_wallet_outlined,
+                                            color: Colors.greenAccent.shade100,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'Terkumpul',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(alpha: 0.85),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Rp ${NumberFormat('#,###', 'id_ID').format(totalAmount)}',
+                                        style: TextStyle(
+                                          color: Colors.greenAccent.shade100,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Tombol detail
+                                IconButton(
+                                  onPressed: () => _showDetailModal(docs),
+                                  icon: const Icon(Icons.list_alt, color: Colors.white),
+                                  tooltip: 'Daftar Hasil Scan',
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Colors.white.withValues(alpha: 0.25),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    padding: const EdgeInsets.all(8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+        // Dekorasi Lingkaran Kanan Atas
+        Positioned(
+          right: -40,
+          top: -30,
+          child: IgnorePointer(
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+          ),
+        ),
+        // Dekorasi Lingkaran Kiri Bawah
+        Positioned(
+          left: -20,
+          bottom: 10,
+          child: IgnorePointer(
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Color>(
+      valueListenable: AppTheme.primaryColorNotifier,
+      builder: (context, primaryColor, _) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          ),
+          child: Scaffold(
+            backgroundColor: const Color(0xFF1A1A2E),
+            body: Column(
+              children: [
+                // ── Header Gradasi & Lengkungan Sesuai Tema Halaman Utama ──
+                _buildHeader(context),
+
+              // ── Area Kartu Kamera Scanner ──
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+                  decoration: BoxDecoration(
+                    color: const Color(
+                      0xFF1E2538,
+                    ), // Warna kartu kamera slate gelap
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // 1. Preview Kamera
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: MobileScanner(
+                                  controller: _controller,
+                                  onDetect: _processScan,
+                                ),
+                              ),
+
+                              // 2. Batas sudut scan putih di tengah
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _ScannerCardOverlayPainter(),
+                                ),
+                              ),
+
+                              // 3. Tombol Flash di pojok kanan atas preview
+                              Positioned(
+                                top: 16,
+                                right: 16,
+                                child: ValueListenableBuilder<MobileScannerState>(
+                                  valueListenable: _controller,
+                                  builder: (context, state, child) {
+                                    final isFlashOn =
+                                        state.torchState == TorchState.on;
+                                    return ClipOval(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF1A1A2E),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: IconButton(
+                                          padding: const EdgeInsets.all(8),
+                                          constraints: const BoxConstraints(),
+                                          icon: Icon(
+                                            isFlashOn
+                                                ? Icons.flash_on
+                                                : Icons.flash_off,
+                                            color: isFlashOn
+                                                ? Colors.amberAccent
+                                                : Colors.white70,
+                                          ),
+                                          iconSize: 22.0,
+                                          onPressed: () {
+                                            _controller.toggleTorch();
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+
+                              // 4. Loading overlay
+                              if (_isProcessing)
+                                Container(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // 5. Teks instruksi di bawah area kamera (di dalam card)
+                      const SizedBox(height: 14),
+                      Text(
+                        _isProcessing
+                            ? 'Memproses...'
+                            : 'Arahkan kamera ke QR Code Warga',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-        ],
-      ),
-    );
+            ],
+          ),
+        ),
+      );
+    },
+  );
   }
 }
 

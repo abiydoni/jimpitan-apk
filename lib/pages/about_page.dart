@@ -18,6 +18,7 @@ class _AboutPageState extends State<AboutPage> {
   bool _isLoading = true;
   bool _hasUpdate = false;
   String _latestVersion = '';
+  bool _is64Bit = true;
 
   @override
   void initState() {
@@ -29,6 +30,7 @@ class _AboutPageState extends State<AboutPage> {
     try {
       final info = await PackageInfo.fromPlatform();
       final currentVer = info.version;
+      final is64 = await is64BitDevice();
       
       final versionData = await ApiService.checkAppVersion();
       
@@ -48,6 +50,7 @@ class _AboutPageState extends State<AboutPage> {
           _currentVersion = currentVer;
           _hasUpdate = hasUp;
           _latestVersion = latest;
+          _is64Bit = is64;
           _isLoading = false;
         });
       }
@@ -139,16 +142,46 @@ class _AboutPageState extends State<AboutPage> {
                   else
                     Column(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Versi $_currentVersion',
-                            style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'Versi $_currentVersion',
+                                style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _is64Bit ? Colors.blue.shade50 : Colors.amber.shade50,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: _is64Bit ? Colors.blue.shade200 : Colors.amber.shade300, width: 0.8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_is64Bit ? Icons.bolt_rounded : Icons.phone_android_rounded, size: 14, color: _is64Bit ? Colors.blue.shade700 : Colors.amber.shade800),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _is64Bit ? '64-bit (HP Baru)' : '32-bit (HP Lama)',
+                                    style: TextStyle(
+                                      color: _is64Bit ? Colors.blue.shade800 : Colors.amber.shade900,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         if (_hasUpdate)

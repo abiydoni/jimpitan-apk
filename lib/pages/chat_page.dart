@@ -135,6 +135,16 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  bool _isUserOnline(Map user) {
+    if (user['isOnline'] != true) return false;
+    final ts = user['lastSeen'];
+    if (ts == null) return false;
+    final date = DateTime.tryParse(ts.toString())?.toLocal();
+    if (date == null) return false;
+    // Anggap online jika ada aktivitas dalam 2.5 menit terakhir
+    return DateTime.now().difference(date).inSeconds <= 150;
+  }
+
   // Membuat roomId yang unik dan konsisten untuk personal chat
   String _getPersonalRoomId(String targetUid) {
     if (currentUser == null) return '';
@@ -444,7 +454,7 @@ class _ChatPageState extends State<ChatPage> {
                 if (!isSuperA && isSuperB) return 1;
 
                 DateTime getEffectiveLastSeen(Map user) {
-                  if (user['isOnline'] == true) return DateTime.now();
+                  if (_isUserOnline(user)) return DateTime.now();
                   final ts = DateTime.tryParse(
                     user['lastSeen']?.toString() ?? '',
                   )?.toLocal();
@@ -460,7 +470,7 @@ class _ChatPageState extends State<ChatPage> {
 
               return SliverList(
                 delegate: SliverChildBuilderDelegate((context, index) {
-                  final userData = users[index];
+                  final userData = Map<String, dynamic>.from(users[index] as Map);
                   final targetUid = userData['uid'] ?? '';
                   final name = userData['name'] ?? 'Warga Tanpa Nama';
                   final roomId = _getPersonalRoomId(targetUid);
@@ -470,7 +480,7 @@ class _ChatPageState extends State<ChatPage> {
                       userData['roles']?.toString().contains('SUPER_ADMIN') ??
                       false;
 
-                  final isOnline = userData['isOnline'] == true;
+                  final isOnline = _isUserOnline(userData as Map);
 
                   String lastSeenText = 'Offline';
                   if (isOnline) {

@@ -1,6 +1,8 @@
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -8,6 +10,26 @@ import 'package:open_filex/open_filex.dart';
 import 'package:in_app_update/in_app_update.dart';
 import '../utils/api_service.dart';
 import '../utils/app_theme.dart';
+
+/// Mendeteksi apakah perangkat Android menggunakan arsitektur 64-bit (HP Baru / ARM64)
+/// atau arsitektur 32-bit (HP Lama / ARMv7).
+Future<bool> is64BitDevice() async {
+  if (!Platform.isAndroid) return true;
+  try {
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    final supported64 = androidInfo.supported64BitAbis;
+    if (supported64.isNotEmpty) return true;
+
+    final supportedAbis = androidInfo.supportedAbis;
+    if (supportedAbis.any((abi) => abi.toLowerCase().contains('64') || abi.toLowerCase().contains('arm64'))) {
+      return true;
+    }
+    return false;
+  } catch (e) {
+    debugPrint('Error detecting device ABI: $e');
+    return true; // Default to 64-bit jika gagal deteksi
+  }
+}
 
 /// Cek versi app ke server dan tampilkan dialog update jika ada versi baru.
 /// Panggil di initState halaman utama setelah user login.
@@ -44,8 +66,19 @@ Future<void> checkAndShowUpdateDialog(BuildContext context, {bool forceShow = fa
     final latestVersion = versionData['latestVersion']?.toString() ?? '';
     final minVersion = versionData['minVersion']?.toString() ?? '';
     final forceUpdate = versionData['forceUpdate'] == true;
-    final updateUrl = versionData['updateUrl']?.toString() ?? '';
+    final updateUrl64 = versionData['updateUrl']?.toString() ?? '';
+    final updateUrlLegacy = versionData['updateUrlLegacy']?.toString() ?? '';
     final releaseNotes = versionData['releaseNotes']?.toString() ?? '';
+
+    // Deteksi arsitektur perangkat (HP Baru / HP Lama)
+    final is64 = await is64BitDevice();
+    String finalUpdateUrl = updateUrl64;
+    if (!is64 && updateUrlLegacy.trim().isNotEmpty) {
+      // Jika HP Lama (32-bit) dan link khusus HP lama tersedia di backend
+      finalUpdateUrl = updateUrlLegacy.trim();
+    } else if (finalUpdateUrl.isEmpty && updateUrlLegacy.trim().isNotEmpty) {
+      finalUpdateUrl = updateUrlLegacy.trim();
+    }
 
     // Bandingkan versi (simple string comparison untuk format X.Y.Z)
     if (!_isNewerVersion(latestVersion, currentVersion) && !forceShow) return;
@@ -64,7 +97,7 @@ Future<void> checkAndShowUpdateDialog(BuildContext context, {bool forceShow = fa
         latestVersion: latestVersion,
         releaseNotes: releaseNotes,
         isForced: isForced,
-        updateUrl: updateUrl,
+        updateUrl: finalUpdateUrl,
       ),
     );
   } catch (e) {

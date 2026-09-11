@@ -1,9 +1,11 @@
 android.applicationVariants.all { variant ->
-    variant.outputs.all {
+    variant.outputs.all { output ->
+        def abiFilter = output.getFilter(com.android.build.OutputFile.ABI)
+        def suffix = abiFilter ? "-${abiFilter}" : ""
         if (variant.name.toLowerCase().contains("debug")) {
-            outputFileName = "Jimpitan V ${variant.versionName}-debug.apk"
+            outputFileName = "Jimpitan-V${variant.versionName}${suffix}-debug.apk"
         } else {
-            outputFileName = "Jimpitan-V${variant.versionName}.apk"
+            outputFileName = "Jimpitan-V${variant.versionName}${suffix}.apk"
         }
     }
 }

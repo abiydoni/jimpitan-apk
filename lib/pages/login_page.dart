@@ -50,7 +50,10 @@ class _LoginPageState extends State<LoginPage> {
         );
       } else {
         try {
-          final GoogleSignIn googleSignIn = GoogleSignIn();
+          final GoogleSignIn googleSignIn = GoogleSignIn(
+            serverClientId:
+                '230006065254-4qbk0vee5limtfve7lajnbmpdunvmjpg.apps.googleusercontent.com',
+          );
           try {
             await googleSignIn.signOut();
           } catch (_) {}

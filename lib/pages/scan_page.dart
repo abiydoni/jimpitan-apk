@@ -836,6 +836,7 @@ class _ScanPageState extends State<ScanPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return ValueListenableBuilder<Color>(
       valueListenable: AppTheme.primaryColorNotifier,
       builder: (context, primaryColor, _) {
@@ -852,185 +853,277 @@ class _ScanPageState extends State<ScanPage> {
                 // ── Header Gradasi & Lengkungan Sesuai Tema Halaman Utama ──
                 _buildHeader(context),
 
-              // ── Area Kartu Kamera Scanner ──
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-                  decoration: BoxDecoration(
-                    color: const Color(
-                      0xFF1E2538,
-                    ), // Warna kartu kamera slate gelap
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                // ── Area Kartu Kamera Scanner ──
+                Expanded(
+                  child: Container(
+                    margin: EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      68 + (bottomPadding > 0 ? bottomPadding : 20),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 15,
-                        spreadRadius: 2,
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+                    decoration: BoxDecoration(
+                      color: const Color(
+                        0xFF1E2538,
+                      ), // Warna kartu kamera slate gelap
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // 1. Preview Kamera
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: MobileScanner(
-                                  controller: _controller,
-                                  onDetect: _processScan,
-                                ),
-                              ),
-
-                              // 2. Batas sudut scan putih di tengah
-                              Positioned.fill(
-                                child: CustomPaint(
-                                  painter: _ScannerCardOverlayPainter(),
-                                ),
-                              ),
-
-                              // 3. Tombol Flash di pojok kanan atas preview
-                              Positioned(
-                                top: 16,
-                                right: 16,
-                                child: ValueListenableBuilder<MobileScannerState>(
-                                  valueListenable: _controller,
-                                  builder: (context, state, child) {
-                                    final isFlashOn =
-                                        state.torchState == TorchState.on;
-                                    return ClipOval(
-                                      child: Container(
-                                        padding: const EdgeInsets.all(2),
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF1A1A2E),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: IconButton(
-                                          padding: const EdgeInsets.all(8),
-                                          constraints: const BoxConstraints(),
-                                          icon: Icon(
-                                            isFlashOn
-                                                ? Icons.flash_on
-                                                : Icons.flash_off,
-                                            color: isFlashOn
-                                                ? Colors.amberAccent
-                                                : Colors.white70,
-                                          ),
-                                          iconSize: 22.0,
-                                          onPressed: () {
-                                            _controller.toggleTorch();
-                                          },
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-
-                              // 4. Loading overlay
-                              if (_isProcessing)
-                                Container(
-                                  color: Colors.black.withValues(alpha: 0.5),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 15,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // 1. Preview Kamera
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: MobileScanner(
+                                    controller: _controller,
+                                    onDetect: _processScan,
                                   ),
                                 ),
-                            ],
+
+                                // 2. Efek Blur & Gelap di 4 sisi luar kotak scan
+                                Positioned.fill(
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final width = constraints.maxWidth;
+                                      final height = constraints.maxHeight;
+                                      final boxSize =
+                                          math.min(width, height) * 0.68;
+                                      final left = (width - boxSize) / 2;
+                                      final top = (height - boxSize) / 2;
+                                      final bottom =
+                                          height - (top + boxSize);
+                                      final right =
+                                          width - (left + boxSize);
+
+                                      Widget buildPanel() {
+                                        return ClipRect(
+                                          child: BackdropFilter(
+                                            filter: ImageFilter.blur(
+                                              sigmaX: 12,
+                                              sigmaY: 12,
+                                            ),
+                                            child: Container(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.68,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      return Stack(
+                                        children: [
+                                          // Top panel
+                                          Positioned(
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            height: top,
+                                            child: buildPanel(),
+                                          ),
+                                          // Bottom panel
+                                          Positioned(
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            height: bottom,
+                                            child: buildPanel(),
+                                          ),
+                                          // Left panel
+                                          Positioned(
+                                            top: top,
+                                            bottom: bottom,
+                                            left: 0,
+                                            width: left,
+                                            child: buildPanel(),
+                                          ),
+                                          // Right panel
+                                          Positioned(
+                                            top: top,
+                                            bottom: bottom,
+                                            right: 0,
+                                            width: right,
+                                            child: buildPanel(),
+                                          ),
+                                          // Frame sudut kotak di tengah
+                                          Positioned(
+                                            left: left,
+                                            top: top,
+                                            width: boxSize,
+                                            height: boxSize,
+                                            child: CustomPaint(
+                                              painter:
+                                                  _ScannerBoxCornersPainter(),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ),
+
+                                // 3. Tombol Flash di pojok kanan atas preview
+                                Positioned(
+                                  top: 16,
+                                  right: 16,
+                                  child: ValueListenableBuilder<MobileScannerState>(
+                                    valueListenable: _controller,
+                                    builder: (context, state, child) {
+                                      final isFlashOn =
+                                          state.torchState == TorchState.on;
+                                      return ClipOval(
+                                        child: Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF1A1A2E),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: IconButton(
+                                            padding: const EdgeInsets.all(8),
+                                            constraints: const BoxConstraints(),
+                                            icon: Icon(
+                                              isFlashOn
+                                                  ? Icons.flash_on
+                                                  : Icons.flash_off,
+                                              color: isFlashOn
+                                                  ? Colors.amberAccent
+                                                  : Colors.white70,
+                                            ),
+                                            iconSize: 22.0,
+                                            onPressed: () {
+                                              _controller.toggleTorch();
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+
+                                // 4. Loading overlay
+                                if (_isProcessing)
+                                  Container(
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
 
-                      // 5. Teks instruksi di bawah area kamera (di dalam card)
-                      const SizedBox(height: 14),
-                      Text(
-                        _isProcessing
-                            ? 'Memproses...'
-                            : 'Arahkan kamera ke QR Code Warga',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.2,
+                        // 5. Teks instruksi di bawah area kamera (di dalam card)
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _isProcessing
+                                  ? Icons.hourglass_top_rounded
+                                  : Icons.qr_code_scanner_rounded,
+                              size: 18,
+                              color: _isProcessing
+                                  ? Colors.amberAccent
+                                  : Colors.white70,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isProcessing
+                                  ? 'Memproses...'
+                                  : 'Scan di sini • Arahkan ke QR Code Warga',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
   }
 }
 
-/// Menggambar 4 sudut batas scan berwarna putih tegas seperti pada referensi
-class _ScannerCardOverlayPainter extends CustomPainter {
+/// Menggambar 4 sudut batas scan berwarna putih tegas melengkung presisi
+class _ScannerBoxCornersPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final borderPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4.5
-      ..strokeCap = StrokeCap.square;
+      ..strokeCap = StrokeCap.round;
 
-    // Hitung ukuran batas kamera di tengah
-    final double boxSize = math.min(size.width, size.height) * 0.68;
-    final double left = (size.width - boxSize) / 2;
-    final double top = (size.height - boxSize) / 2;
+    final double w = size.width;
+    final double h = size.height;
+    final double len = w * 0.22;
+    const double r = 16.0;
 
-    final double len = boxSize * 0.22;
-
+    final path = Path();
     // Kiri Atas
-    canvas.drawLine(Offset(left, top), Offset(left + len, top), borderPaint);
-    canvas.drawLine(Offset(left, top), Offset(left, top + len), borderPaint);
+    path.moveTo(0, len);
+    path.lineTo(0, r);
+    path.arcToPoint(
+      const Offset(r, 0),
+      radius: const Radius.circular(r),
+    );
+    path.lineTo(len, 0);
 
     // Kanan Atas
-    canvas.drawLine(
-      Offset(left + boxSize - len, top),
-      Offset(left + boxSize, top),
-      borderPaint,
+    path.moveTo(w - len, 0);
+    path.lineTo(w - r, 0);
+    path.arcToPoint(
+      Offset(w, r),
+      radius: const Radius.circular(r),
     );
-    canvas.drawLine(
-      Offset(left + boxSize, top),
-      Offset(left + boxSize, top + len),
-      borderPaint,
-    );
-
-    // Kiri Bawah
-    canvas.drawLine(
-      Offset(left, top + boxSize),
-      Offset(left + len, top + boxSize),
-      borderPaint,
-    );
-    canvas.drawLine(
-      Offset(left, top + boxSize - len),
-      Offset(left, top + boxSize),
-      borderPaint,
-    );
+    path.lineTo(w, len);
 
     // Kanan Bawah
-    canvas.drawLine(
-      Offset(left + boxSize - len, top + boxSize),
-      Offset(left + boxSize, top + boxSize),
-      borderPaint,
+    path.moveTo(w, h - len);
+    path.lineTo(w, h - r);
+    path.arcToPoint(
+      Offset(w - r, h),
+      radius: const Radius.circular(r),
     );
-    canvas.drawLine(
-      Offset(left + boxSize, top + boxSize - len),
-      Offset(left + boxSize, top + boxSize),
-      borderPaint,
+    path.lineTo(w - len, h);
+
+    // Kiri Bawah
+    path.moveTo(len, h);
+    path.lineTo(r, h);
+    path.arcToPoint(
+      Offset(0, h - r),
+      radius: const Radius.circular(r),
     );
+    path.lineTo(0, h - len);
+
+    canvas.drawPath(path, borderPaint);
   }
 
   @override

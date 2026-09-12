@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/widgets/app_modal_dialog.dart';
@@ -234,20 +235,19 @@ class _ManageRolesPageState extends State<ManageRolesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manajemen Jabatan'),
+      appBar: CustomGradientAppBar(
+        titleText: 'Manajemen Jabatan',
         actions: [
           if (widget.permissions['create'] == true)
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.add_circle,
-                color: AppTheme.primaryColor,
+                color: Colors.white,
                 size: 28,
               ),
               onPressed: _isLoading ? null : _showAddRoleDialog,
               tooltip: 'Tambah Jabatan',
             ),
-          const SizedBox(width: 8),
         ],
       ),
       body: _isLoading

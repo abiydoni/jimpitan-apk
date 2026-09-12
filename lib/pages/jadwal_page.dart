@@ -2,6 +2,7 @@
 import 'package:jimpitan/utils/resident_pdf_export.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'dart:math' as math;
 import 'package:jimpitan/main.dart'; // import routeObserver
@@ -261,11 +262,8 @@ class _JadwalPageState extends State<JadwalPage> with RouteAware {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Jadwal Jaga Warga'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
+      appBar: CustomGradientAppBar(
+        titleText: 'Jadwal Jaga Warga',
         actions: [
           IconButton(
             icon: const Icon(Icons.share_rounded),

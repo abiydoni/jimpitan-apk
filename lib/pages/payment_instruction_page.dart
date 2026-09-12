@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
@@ -303,8 +304,8 @@ class _PaymentInstructionPageState extends State<PaymentInstructionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pembayaran Tagihan'),
+      appBar: const CustomGradientAppBar(
+        titleText: 'Pembayaran Tagihan',
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

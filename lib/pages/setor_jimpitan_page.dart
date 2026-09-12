@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:intl/intl.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/api_service.dart';
@@ -185,11 +186,8 @@ class _SetorJimpitanPageState extends State<SetorJimpitanPage> with RouteAware {
       ..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Setor Jimpitan'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+      appBar: CustomGradientAppBar(
+        titleText: 'Setor Jimpitan',
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -206,30 +204,40 @@ class _SetorJimpitanPageState extends State<SetorJimpitanPage> with RouteAware {
   }
 
   Widget _buildEmptyState() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.check_circle_outline, size: 80, color: Colors.green.shade300),
-          const SizedBox(height: 16),
-          const Text(
-            'Semua Jimpitan Sudah Disetor!',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tidak ada hasil scan harian yang menunggu untuk disetorkan.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomPadding + 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 80, color: Colors.green.shade300),
+            const SizedBox(height: 16),
+            const Text(
+              'Semua Jimpitan Sudah Disetor!',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tidak ada hasil scan harian yang menunggu untuk disetorkan.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildList(List<String> pendingDates) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        80 + (bottomPadding > 0 ? bottomPadding : 16),
+      ),
       itemCount: pendingDates.length,
       itemBuilder: (context, index) {
         final date = pendingDates[index];

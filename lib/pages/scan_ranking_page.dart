@@ -112,47 +112,79 @@ class _ScanRankingPageState extends State<ScanRankingPage>
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: Column(
-        children: [
-          // Header gradient dengan SafeArea
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                children: [
-                  // AppBar row
-                  Padding(
-                    padding: const EdgeInsets.only(
-                        left: 4, right: 16, top: 4, bottom: 0),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back,
-                              color: Colors.white),
-                          onPressed: () => Navigator.pop(context),
+    return ValueListenableBuilder<Color>(
+      valueListenable: AppTheme.primaryColorNotifier,
+      builder: (context, primaryColor, _) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          ),
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC),
+            body: Column(
+              children: [
+                // Header gradient dengan SafeArea & Lengkungan
+                Stack(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [primaryColor, AppTheme.secondaryColor],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        const Text(
-                          'Ranking Scan Terbanyak',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18),
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(28),
+                          bottomRight: Radius.circular(28),
                         ),
-                      ],
-                    ),
-                  ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: SafeArea(
+                        bottom: false,
+                        child: Column(
+                          children: [
+                            // AppBar row
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                  left: 12, right: 16, top: 8, bottom: 0),
+                              child: Row(
+                                children: [
+                                  InkWell(
+                                    onTap: () => Navigator.pop(context),
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.arrow_back_ios_new_rounded,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Ranking Scan Terbanyak',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18),
+                                  ),
+                                ],
+                              ),
+                            ),
                   // Ikon dan subtitle
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
@@ -190,25 +222,59 @@ class _ScanRankingPageState extends State<ScanRankingPage>
                       Tab(text: 'Semua'),
                     ],
                   ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Dekorasi Lingkaran Kanan Atas
+                Positioned(
+                  right: -30,
+                  top: -20,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ),
+                ),
+                // Dekorasi Lingkaran Kiri Bawah
+                Positioned(
+                  left: -15,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.05),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // TabBarView mengisi sisa layar
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildRankingView('month'),
+                  _buildRankingView('year'),
+                  _buildRankingView('all'),
                 ],
               ),
             ),
-          ),
-          // TabBarView mengisi sisa layar
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildRankingView('month'),
-                _buildRankingView('year'),
-                _buildRankingView('all'),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
+  },
+);
   }
 
   Widget _buildRankingView(String period) {

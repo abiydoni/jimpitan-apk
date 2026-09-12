@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jimpitan/utils/app_theme.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:intl/intl.dart';
 import 'dues_kk_list_page.dart';
 import 'package:jimpitan/utils/api_service.dart';
@@ -67,9 +68,8 @@ class _DuesPageState extends State<DuesPage> with RouteAware {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Rekapitulasi Iuran'),
-        backgroundColor: Colors.white,
+      appBar: const CustomGradientAppBar(
+        titleText: 'Rekapitulasi Iuran',
       ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _dataFuture,

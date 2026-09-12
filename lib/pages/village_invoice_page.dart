@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:jimpitan/pages/plan_selection_page.dart';
 import 'package:jimpitan/pages/payment_success_receipt_page.dart';
@@ -68,8 +69,8 @@ class _VillageInvoicePageState extends State<VillageInvoicePage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Info Berlangganan & Tagihan'),
+      appBar: const CustomGradientAppBar(
+        titleText: 'Info Berlangganan & Tagihan',
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

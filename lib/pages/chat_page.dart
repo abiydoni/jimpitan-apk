@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/pages/chat_room_page.dart';
@@ -157,7 +158,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
+      appBar: CustomGradientAppBar(
         title: Builder(
           builder: (context) {
             String userName = 'Memuat...';
@@ -180,6 +181,7 @@ class _ChatPageState extends State<ChatPage> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

@@ -189,19 +189,24 @@ class _AplikasiJimpitanState extends State<AplikasiJimpitan> {
             scaffoldBackgroundColor: const Color(
               0xFFF5F7FA,
             ), // Background abu-abu premium
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.white,
-              foregroundColor: Color(0xFF1E293B),
+            appBarTheme: AppBarTheme(
+              backgroundColor: themeColor,
+              foregroundColor: Colors.white,
               elevation: 0,
               scrolledUnderElevation: 0,
               centerTitle: false,
-              systemOverlayStyle: SystemUiOverlayStyle.dark,
-              titleTextStyle: TextStyle(
-                color: Color(0xFF1E293B),
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              systemOverlayStyle: const SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.light,
+                statusBarBrightness: Brightness.dark,
               ),
-              iconTheme: IconThemeData(color: Color(0xFF1E293B)),
+              titleTextStyle: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.3,
+              ),
+              iconTheme: const IconThemeData(color: Colors.white),
             ),
             dialogTheme: const DialogThemeData(
               backgroundColor: Colors.white,
@@ -1463,7 +1468,36 @@ class _DashboardPageState extends State<DashboardPage>
 
   void _updateVillagesStream() {
     if (_currentVillageId != null) {
-      _villagesFuture = ApiService.getVillage(_currentVillageId!);
+      _villagesFuture = ApiService.getVillage(_currentVillageId!).then((vData) {
+        if (vData != null && vData['config'] != null) {
+          Map<String, dynamic> config = {};
+          var rawConf = vData['config'];
+          if (rawConf is String) {
+            try {
+              rawConf = json.decode(rawConf);
+              if (rawConf is String) rawConf = json.decode(rawConf);
+            } catch (_) {}
+          }
+          if (rawConf is Map) {
+            config = Map<String, dynamic>.from(rawConf);
+          }
+          final vTheme = config['themeColor'];
+          if (vTheme != null) {
+            int? colorInt;
+            if (vTheme is int) {
+              colorInt = vTheme;
+            } else if (vTheme is num) {
+              colorInt = vTheme.toInt();
+            } else if (vTheme is String) {
+              colorInt = int.tryParse(vTheme);
+            }
+            if (colorInt != null && AppTheme.primaryColor.toARGB32() != colorInt) {
+              AppTheme.changeTheme(Color(colorInt));
+            }
+          }
+        }
+        return vData;
+      });
       _slidesFuture = ApiService.getSlides(_currentVillageId ?? '');
       _subscriptionFuture = ApiService.getVillageSubscription(
         _currentVillageId!,
@@ -1577,14 +1611,6 @@ class _DashboardPageState extends State<DashboardPage>
           final raw = config['menuPermissions'];
           if (raw is Map) {
             menuPermissions = Map<dynamic, dynamic>.from(raw);
-          }
-          final vTheme = config['themeColor'];
-          if (vTheme != null && vTheme is int) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (AppTheme.primaryColor.toARGB32() != vTheme) {
-                AppTheme.changeTheme(Color(vTheme));
-              }
-            });
           }
         }
 

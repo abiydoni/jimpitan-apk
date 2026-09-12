@@ -1,5 +1,6 @@
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
@@ -435,16 +436,15 @@ class _TariffsPageState extends State<TariffsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Manajemen Tarif'),
+      appBar: CustomGradientAppBar(
+        titleText: 'Manajemen Tarif',
         actions: [
           if (widget.permissions['create'] == true)
             IconButton(
-              icon: Icon(Icons.add_circle, color: AppTheme.primaryColor, size: 28),
+              icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
               onPressed: () => _showTariffForm(),
               tooltip: 'Tambah Tarif',
             ),
-          const SizedBox(width: 8),
         ],
       ),
       body: FutureBuilder<List<dynamic>>(

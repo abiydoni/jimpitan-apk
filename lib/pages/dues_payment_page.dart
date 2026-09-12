@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/resident_pdf_export.dart';
@@ -761,62 +762,290 @@ class _DuesPaymentPageState extends State<DuesPaymentPage> {
       decimalDigits: 0,
     );
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text(
-          'Detail Pembayaran',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        backgroundColor: AppTheme.primaryColor,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share_rounded),
-            onPressed: _sharePaymentDetailPdf,
-            tooltip: 'Bagikan PDF Detail Pembayaran',
+    return ValueListenableBuilder<Color>(
+      valueListenable: AppTheme.primaryColorNotifier,
+      builder: (context, primaryColor, _) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
           ),
-        ],
-      ),
-      body: FutureBuilder<List<dynamic>>(
-        future: _journalsFuture,
-        initialData: _lastJournals,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final journals = snapshot.data ?? [];
-
-          if (tariffType == 'Harian' || tariffType == 'Jimpitan') {
-            return FutureBuilder<List<dynamic>>(
-              future: _jimpitanFuture,
-              initialData: _lastJimpitan,
-              builder: (context, jimpitanSnap) {
-                if (jimpitanSnap.connectionState == ConnectionState.waiting && !jimpitanSnap.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final jimpitanDocs = jimpitanSnap.data ?? [];
-                return _buildMainContent(
-                  journals,
-                  jimpitanDocs,
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC),
+            body: Column(
+              children: [
+                _buildUnifiedHeader(
+                  context,
                   tariffType,
                   amount,
                   currencyFormat,
-                );
-              },
-            );
-          }
+                  primaryColor,
+                ),
+                Expanded(
+                  child: FutureBuilder<List<dynamic>>(
+                    future: _journalsFuture,
+                    initialData: _lastJournals,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-          return _buildMainContent(
-            journals,
-            [],
-            tariffType,
-            amount,
-            currencyFormat,
-          );
-        },
+                      final journals = snapshot.data ?? [];
+
+                      if (tariffType == 'Harian' || tariffType == 'Jimpitan') {
+                        return FutureBuilder<List<dynamic>>(
+                          future: _jimpitanFuture,
+                          initialData: _lastJimpitan,
+                          builder: (context, jimpitanSnap) {
+                            if (jimpitanSnap.connectionState ==
+                                    ConnectionState.waiting &&
+                                !jimpitanSnap.hasData) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+                            final jimpitanDocs = jimpitanSnap.data ?? [];
+                            return _buildMainContent(
+                              journals,
+                              jimpitanDocs,
+                              tariffType,
+                              amount,
+                              currencyFormat,
+                            );
+                          },
+                        );
+                      }
+
+                      return _buildMainContent(
+                        journals,
+                        [],
+                        tariffType,
+                        amount,
+                        currencyFormat,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUnifiedHeader(
+    BuildContext context,
+    String tariffType,
+    int amount,
+    NumberFormat currencyFormat,
+    Color primaryColor,
+  ) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    final secondaryColor = AppTheme.secondaryColor;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            primaryColor,
+            secondaryColor,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Dekorasi lingkaran kanan atas
+          Positioned(
+            top: -40,
+            right: -30,
+            child: IgnorePointer(
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+          // Dekorasi lingkaran kiri bawah
+          Positioned(
+            bottom: -30,
+            left: -30,
+            child: IgnorePointer(
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+          // Konten Header
+          Column(
+            children: [
+              SizedBox(height: topPadding + 10),
+              // Top Bar Navigation (Back Button, Title, PDF Share)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.maybePop(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Detail Pembayaran',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: _sharePaymentDetailPdf,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.share_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Info Warga & Tagihan
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.kkName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _canSeePrivateData
+                                ? 'No. KK: ${widget.kkNumber}'
+                                : (widget.houseCode != null &&
+                                        widget.houseCode!.isNotEmpty
+                                    ? 'Kode Rumah: ${widget.houseCode}'
+                                    : 'No. KK: ****************'),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${widget.tariffData['name']}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '$tariffType - ${currencyFormat.format(amount)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -830,143 +1059,6 @@ class _DuesPaymentPageState extends State<DuesPaymentPage> {
   ) {
     return Column(
       children: [
-        // Hero Header section
-        ClipRRect(
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(30),
-            bottomRight: Radius.circular(30),
-          ),
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.primaryColor,
-                  AppTheme.primaryColor.withValues(alpha: 0.75),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Stack(
-              children: [
-                // Dekorasi lingkaran atas kanan
-                Positioned(
-                  top: -40,
-                  right: -30,
-                  child: Container(
-                    width: 140,
-                    height: 140,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-                // Dekorasi lingkaran bawah kiri
-                Positioned(
-                  bottom: -30,
-                  left: -30,
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-                // Konten Utama
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 20,
-                    bottom: 40,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.kkName,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _canSeePrivateData
-                                  ? 'No. KK: ${widget.kkNumber}'
-                                  : (widget.houseCode != null && widget.houseCode!.isNotEmpty
-                                      ? 'Kode Rumah: ${widget.houseCode}'
-                                      : 'No. KK: ****************'),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.3),
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '${widget.tariffData['name']}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '$tariffType - ${currencyFormat.format(amount)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
         // Summary Card overlaps header using Transform
         Transform.translate(
           offset: const Offset(0, -25),

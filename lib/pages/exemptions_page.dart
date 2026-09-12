@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:intl/intl.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/widgets/app_modal_dialog.dart';
@@ -468,21 +469,15 @@ class _ExemptionsPageState extends State<ExemptionsPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Pembebasan Iuran'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E293B),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
+      appBar: CustomGradientAppBar(
+        titleText: 'Pembebasan Iuran',
         actions: [
           if (widget.permissions['create'] == true)
             IconButton(
-              icon: Icon(Icons.add_circle, color: AppTheme.primaryColor, size: 28),
+              icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
               onPressed: _showFormDialog,
               tooltip: 'Tambah Pembebasan',
             ),
-          const SizedBox(width: 8),
         ],
       ),
       body: Column(

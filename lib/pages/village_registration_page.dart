@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/api_service.dart';
@@ -73,13 +74,27 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Daftar Desa/RT Baru'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            await FirebaseAuth.instance.signOut();
-          },
+      appBar: CustomGradientAppBar(
+        titleText: 'Daftar Desa/RT Baru',
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: InkWell(
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
         ),
       ),
       body: SingleChildScrollView(

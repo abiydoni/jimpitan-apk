@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'unscanned_residents_page.dart';
 import 'scan_ranking_page.dart';
@@ -69,10 +70,8 @@ class _ReportsPageState extends State<ReportsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Laporan'),
-        backgroundColor: Colors.white,
-        elevation: 0,
+      appBar: const CustomGradientAppBar(
+        titleText: 'Laporan',
       ),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),

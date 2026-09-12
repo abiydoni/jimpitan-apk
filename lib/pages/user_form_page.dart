@@ -1,6 +1,7 @@
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
@@ -1071,16 +1072,10 @@ class _UserFormPageState extends State<UserFormPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: Text(
-          isApproveMode
-              ? 'Setujui Warga Baru'
-              : (widget.userId != null ? 'Edit Data Warga' : 'Tambah Warga'),
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+      appBar: CustomGradientAppBar(
+        titleText: isApproveMode
+            ? 'Setujui Warga Baru'
+            : (widget.userId != null ? 'Edit Data Warga' : 'Tambah Warga'),
       ),
       body: Form(
         key: _formKey,

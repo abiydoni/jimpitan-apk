@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:jimpitan/utils/date_helper.dart';
@@ -295,8 +296,8 @@ class _PaymentSuccessReceiptPageState extends State<PaymentSuccessReceiptPage> {
     final isUnpaid = _currentStatus == 'UNPAID';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isPaid ? 'Nota Lunas' : (isUnpaid ? 'Menunggu Pembayaran' : 'Menunggu Validasi')),
+      appBar: CustomGradientAppBar(
+        titleText: isPaid ? 'Nota Lunas' : (isUnpaid ? 'Menunggu Pembayaran' : 'Menunggu Validasi'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(

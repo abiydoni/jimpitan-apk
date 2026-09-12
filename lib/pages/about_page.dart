@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/api_service.dart';
@@ -84,12 +84,8 @@ class _AboutPageState extends State<AboutPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text('Tentang Aplikasi', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+      appBar: const CustomGradientAppBar(
+        titleText: 'Tentang Aplikasi',
         centerTitle: true,
       ),
       body: SingleChildScrollView(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -497,13 +498,20 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         backgroundColor: const Color(
           0xFFF8FAFC,
         ), // Modern light slate background
-        appBar: AppBar(
+        appBar: CustomGradientAppBar(
           title: widget.targetUid == null
-              ? Text(widget.roomName)
+              ? Text(
+                  widget.roomName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
               : Builder(
                   builder: (context) {
                     String statusText = '';
-                    Color statusColor = Colors.grey;
+                    Color statusColor = Colors.white70;
                     if (_targetUserData != null) {
                       final data = _targetUserData!;
                       bool isOnline = data['isOnline'] == true;
@@ -520,7 +528,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                       }
                       if (isOnline) {
                         statusText = 'Online';
-                        statusColor = Colors.green;
+                        statusColor = Colors.greenAccent.shade100;
                       } else {
                         if (lastSeenDate != null) {
                           final diff = DateTime.now().difference(lastSeenDate);
@@ -528,7 +536,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                             statusText = 'Baru saja';
                           } else if (diff.inHours < 24) {
                             statusText =
-                                'Terakhir dilihat pukul ${lastSeenDate.hour.toString().padLeft(2, '0')}:${lastSeenDate.minute.toString().padLeft(2, '0')}';
+                                'Terakhir dilihat ${lastSeenDate.hour.toString().padLeft(2, '0')}:${lastSeenDate.minute.toString().padLeft(2, '0')}';
                           } else if (diff.inDays < 7) {
                             statusText =
                                 'Terakhir dilihat ${diff.inDays} hari yang lalu';
@@ -546,7 +554,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                       children: [
                         UserAvatar(
                           userData: _targetUserData ?? {'name': widget.roomName},
-                          radius: 20,
+                          radius: 18,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -555,13 +563,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                             children: [
                               Text(
                                 widget.roomName,
-                                style: const TextStyle(fontSize: 18),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                               if (statusText.isNotEmpty)
                                 Text(
                                   statusText,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     color: statusColor,
                                     fontWeight: FontWeight.normal,
                                   ),

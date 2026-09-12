@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
@@ -1174,12 +1175,13 @@ class _InventoryPageState extends State<InventoryPage> {
       length: 3,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          title: const Text('Inventaris RT'),
+        appBar: CustomGradientAppBar(
+          titleText: 'Inventaris RT',
           bottom: const TabBar(
-            labelColor: Color(0xFF1E293B),
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Color(0xFF1E293B),
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white60,
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
             isScrollable: true,
             tabs: [
               Tab(text: 'Daftar Barang'),
@@ -1197,19 +1199,19 @@ class _InventoryPageState extends State<InventoryPage> {
                     builder: (context, child) {
                       if (tabController.index == 0) {
                         return IconButton(
-                          icon: Icon(Icons.add_circle, color: AppTheme.primaryColor, size: 28),
+                          icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
                           onPressed: () => _showItemForm(),
                           tooltip: 'Tambah Barang',
                         );
                       } else if (tabController.index == 1) {
                         return IconButton(
-                          icon: const Icon(Icons.add_circle, color: Colors.green, size: 28),
+                          icon: const Icon(Icons.add_circle, color: Colors.greenAccent, size: 28),
                           onPressed: () => _recordLoan(),
                           tooltip: 'Tambah Peminjaman',
                         );
                       } else if (tabController.index == 2) {
                         return IconButton(
-                          icon: const Icon(Icons.add_circle, color: Colors.blue, size: 28),
+                          icon: const Icon(Icons.add_circle, color: Colors.lightBlueAccent, size: 28),
                           onPressed: () => _showManualJournalForm(),
                           tooltip: 'Tambah Jurnal Manual',
                         );
@@ -1220,7 +1222,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   );
                 }
               ),
-            const SizedBox(width: 8),
           ],
         ),
         body: TabBarView(

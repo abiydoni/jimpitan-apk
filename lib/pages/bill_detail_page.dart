@@ -455,209 +455,308 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
       double.maxFinite.toInt(),
     );
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarBrightness: Brightness.light,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC), // Light modern background
-        body: Stack(
-          children: [
-            // Glowing orb 1
-            Positioned(
-              top: -100,
-              right: -50,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                      blurRadius: 100,
-                      spreadRadius: 50,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Glowing orb 2
-            Positioned(
-              bottom: 50,
-              left: -100,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      blurRadius: 80,
-                      spreadRadius: 30,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Main content
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      _buildSliverAppBar(overallTotal),
-                      if (_tariffs.isEmpty)
-                        const SliverFillRemaining(
-                          child: Center(
-                            child: Text(
-                              "Belum ada daftar tarif di desa ini.",
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ),
-                        )
-                      else
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                final visibleTariffs = _tariffs
-                                    .where(
-                                      (t) =>
-                                          !_exemptedTariffIds.contains(t['id']),
-                                    )
-                                    .toList();
-
-                                if (index < visibleTariffs.length) {
-                                  return _buildTariffCard(
-                                    visibleTariffs[index],
-                                  );
-                                }
-                                return const SizedBox.shrink();
-                              },
-                              childCount: _tariffs
-                                  .where(
-                                    (t) =>
-                                        !_exemptedTariffIds.contains(t['id']),
-                                  )
-                                  .length,
-                            ),
-                          ),
+    return ValueListenableBuilder<Color>(
+      valueListenable: AppTheme.primaryColorNotifier,
+      builder: (context, primaryColor, _) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarBrightness: Brightness.dark,
+            statusBarIconBrightness: Brightness.light,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness: Brightness.dark,
+          ),
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC), // Light modern background
+            body: Stack(
+              children: [
+                // Glowing orb 1
+                Positioned(
+                  top: -100,
+                  right: -50,
+                  child: Container(
+                    width: 300,
+                    height: 300,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primaryColor.withValues(alpha: 0.15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withValues(alpha: 0.15),
+                          blurRadius: 100,
+                          spreadRadius: 50,
                         ),
-                    ],
+                      ],
+                    ),
                   ),
-          ],
-        ),
-      ),
+                ),
+                // Glowing orb 2
+                Positioned(
+                  bottom: 50,
+                  left: -100,
+                  child: Container(
+                    width: 250,
+                    height: 250,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primaryColor.withValues(alpha: 0.1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withValues(alpha: 0.1),
+                          blurRadius: 80,
+                          spreadRadius: 30,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Main content
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : CustomScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        slivers: [
+                          _buildSliverAppBar(overallTotal, primaryColor),
+                          if (_tariffs.isEmpty)
+                            const SliverFillRemaining(
+                              child: Center(
+                                child: Text(
+                                  "Belum ada daftar tarif di desa ini.",
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ),
+                            )
+                          else
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    final visibleTariffs = _tariffs
+                                        .where(
+                                          (t) =>
+                                              !_exemptedTariffIds.contains(t['id']),
+                                        )
+                                        .toList();
+
+                                    if (index < visibleTariffs.length) {
+                                      return _buildTariffCard(
+                                        visibleTariffs[index],
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
+                                  childCount: _tariffs
+                                      .where(
+                                        (t) =>
+                                            !_exemptedTariffIds.contains(t['id']),
+                                      )
+                                      .length,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildSliverAppBar(int overallTotal) {
+  Widget _buildSliverAppBar(int overallTotal, Color primaryColor) {
     return SliverAppBar(
       expandedHeight: 220.0,
       floating: false,
       pinned: true,
-      backgroundColor:
-          Colors.transparent, // Let glassmorphism handle the background
+      backgroundColor: Colors.transparent,
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
       ),
       elevation: 0,
-      iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
+      leading: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: InkWell(
+          onTap: () => Navigator.maybePop(context),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+        ),
+      ),
       title: const Text(
         'Detail Tagihan Warga',
         style: TextStyle(
-          color: Color(0xFF1E293B),
+          color: Colors.white,
           fontWeight: FontWeight.bold,
-          fontSize: 16,
+          fontSize: 18,
+          letterSpacing: 0.3,
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.share_rounded, color: Color(0xFF1E293B)),
-          onPressed: _shareBillDetailPdf,
-          tooltip: 'Bagikan PDF Detail Tagihan',
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: InkWell(
+            onTap: _shareBillDetailPdf,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.share_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
         ),
+        const SizedBox(width: 8),
       ],
-      flexibleSpace: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Container(
-            color: Colors.white.withValues(alpha: 0.7), // Light glass tint
-            child: FlexibleSpaceBar(
-              background: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.account_balance_wallet,
-                              color: AppTheme.primaryColor,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Total Semua Tagihan',
-                              style: TextStyle(
-                                color: AppTheme.primaryColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _formatCurrency(overallTotal),
-                        style: const TextStyle(
-                          color: Color(0xFF1E293B),
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                      if (overallTotal == 0)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            '✨ Lunas! Terima kasih.',
-                            style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                    ],
+      flexibleSpace: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                primaryColor,
+                AppTheme.secondaryColor,
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Dekorasi Lingkaran Kanan Atas
+              Positioned(
+                right: -30,
+                top: -20,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
                   ),
                 ),
               ),
-            ),
+              // Dekorasi Lingkaran Kiri Bawah
+              Positioned(
+                left: -20,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.05),
+                    ),
+                  ),
+                ),
+              ),
+              FlexibleSpaceBar(
+                background: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 52, 20, 16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                color: Colors.white,
+                                size: 15,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Total Semua Tagihan',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          _formatCurrency(overallTotal),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        if (overallTotal == 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.greenAccent.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                '✨ Lunas! Terima kasih.',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

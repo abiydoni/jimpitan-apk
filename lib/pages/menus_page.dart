@@ -1,5 +1,6 @@
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -348,38 +349,30 @@ class _MenusPageState extends State<MenusPage> {
   @override
   Widget build(BuildContext context) {
     if (widget.permissions['view'] != true) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Manajemen Menu Master')),
-        body: const Center(child: Text('Anda tidak memiliki akses ke halaman ini.')),
+      return const Scaffold(
+        appBar: CustomGradientAppBar(titleText: 'Manajemen Menu Master'),
+        body: Center(child: Text('Anda tidak memiliki akses ke halaman ini.')),
       );
     }
 
-    final themeColor = AppTheme.primaryColor;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Kelola Menu Akses'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E293B),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
+      appBar: CustomGradientAppBar(
+        titleText: 'Kelola Menu Akses',
         actions: [
           if (widget.permissions['create'] == true)
             IconButton(
-              icon: Icon(Icons.add_circle, color: themeColor, size: 28),
+              icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
               onPressed: () => _showMenuFormDialog(),
               tooltip: 'Tambah Menu',
             ),
-          const SizedBox(width: 8),
         ],
       ),
       body: FutureBuilder<List<dynamic>>(
         future: _menusFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator(color: themeColor));
+            return Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
           }
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return _buildEmptyState();
@@ -413,10 +406,10 @@ class _MenusPageState extends State<MenusPage> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: themeColor.withValues(alpha: 0.1),
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Icon(MenuHelper.getIcon(data['icon'] ?? 'widgets'), color: themeColor, size: 28),
+                        child: Icon(MenuHelper.getIcon(data['icon'] ?? 'widgets'), color: AppTheme.primaryColor, size: 28),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -449,12 +442,12 @@ class _MenusPageState extends State<MenusPage> {
                         ),
                       if (widget.permissions['edit'] == true)
                         IconButton(
-                          icon: Icon(Icons.edit, color: themeColor),
+                          icon: Icon(Icons.edit, color: AppTheme.primaryColor),
                           onPressed: () => _showMenuFormDialog(data),
                         ),
                       Switch(
                         value: isActive,
-                        activeTrackColor: themeColor,
+                        activeTrackColor: AppTheme.primaryColor,
                         activeThumbColor: Colors.white,
                         onChanged: (val) => _toggleMenuStatus(data['id'], isActive),
                       ),

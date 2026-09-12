@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/user_avatar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:intl/intl.dart';
@@ -122,378 +123,520 @@ class _UnscannedResidentsPageState extends State<UnscannedResidentsPage> {
   @override
   Widget build(BuildContext context) {
     final isToday = _isSameDay(_selectedDate, DateTime.now());
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Warga Belum Scan'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_today),
-            tooltip: 'Pilih Tanggal',
-            onPressed: () => _selectDate(context),
+    return ValueListenableBuilder<Color>(
+      valueListenable: AppTheme.primaryColorNotifier,
+      builder: (context, primaryColor, _) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
           ),
-          const SizedBox(width: 4),
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC),
+            body: Column(
+              children: [
+                // Unified Gradient Header
+                _buildUnifiedHeader(context, primaryColor, isToday),
+
+                // Search bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                    decoration: InputDecoration(
+                      hintText: 'Cari nama kepala keluarga...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Content area — KK list & stats
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : Builder(
+                          builder: (context) {
+                            final allUsers = _users;
+
+                            // Filter hanya Kepala Keluarga
+                            final kkUsers = allUsers.where((data) {
+                              final statusHubungan =
+                                  data['statusHubungan']?.toString() ?? '';
+                              if (statusHubungan.isNotEmpty) {
+                                return statusHubungan == 'Kepala Keluarga';
+                              }
+                              final familyId = data['familyId']?.toString() ?? '';
+                              final code = data['code']?.toString() ?? '';
+                              return familyId.isEmpty || familyId == code;
+                            }).toList();
+
+                            final startDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0, 0);
+                            final endDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
+
+                            final scannedIds = <String>{};
+                            final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+                            final history = _history;
+                            final journals = _journals;
+
+                            final filteredDocs = history.where((data) {
+                              if (data['date'] != null && data['date'].toString().isNotEmpty) {
+                                return data['date'].toString().startsWith(selectedDateStr);
+                              }
+
+                              DateTime? dt;
+                              if (data['timestamp'] is String) dt = DateTime.tryParse(data['timestamp']);
+                              if (dt == null) return false;
+                              return dt.isAfter(startDate.subtract(const Duration(seconds: 1))) &&
+                                     dt.isBefore(endDate.add(const Duration(seconds: 1)));
+                            }).toList();
+
+                            for (var data in filteredDocs) {
+                              final uidStr = data['scannedBy']?.toString();
+                              if (uidStr != null && uidStr.isNotEmpty) {
+                                scannedIds.add(uidStr);
+                              }
+                              final kkStr = data['kkId']?.toString();
+                              if (kkStr != null && kkStr.isNotEmpty) {
+                                scannedIds.add(kkStr);
+                              }
+                            }
+
+                            // ALSO check DuesJournal
+                            if (journals.isNotEmpty) {
+                              for (var data in journals) {
+                                final type = data['type']?.toString() ?? '';
+                                final dateStr = data['date']?.toString() ?? '';
+                                final paidDates = data['paidDates'];
+
+                                bool isMatch = false;
+                                if (paidDates != null && paidDates is List) {
+                                  if (paidDates.contains(selectedDateStr)) {
+                                    isMatch = true;
+                                  }
+                                } else if (dateStr.startsWith(selectedDateStr)) {
+                                  if (type == 'Harian' || type == 'Jimpitan' || type == 'Jimpitan Default') {
+                                    isMatch = true;
+                                  }
+                                }
+
+                                if (isMatch) {
+                                  final kkStr = data['kkId']?.toString();
+                                  if (kkStr != null && kkStr.isNotEmpty) {
+                                    scannedIds.add(kkStr);
+                                  }
+                                }
+                              }
+                            }
+
+                            // Filter KK yang belum scan
+                            final unscanned = kkUsers.where((data) {
+                              final uniqueCode = data['uniqueCode']?.toString() ?? '';
+                              final kkId = data['kkId']?.toString() ?? '';
+                              final code = data['code']?.toString() ?? '';
+                              final noKK = data['noKK']?.toString() ?? '';
+                              final familyId = data['familyId']?.toString() ?? '';
+                              final id = data['id']?.toString() ?? '';
+
+                              final hasScanned = (uniqueCode.isNotEmpty && scannedIds.contains(uniqueCode)) ||
+                                  (kkId.isNotEmpty && scannedIds.contains(kkId)) ||
+                                  (code.isNotEmpty && scannedIds.contains(code)) ||
+                                  (noKK.isNotEmpty && scannedIds.contains(noKK)) ||
+                                  (familyId.isNotEmpty && scannedIds.contains(familyId)) ||
+                                  (id.isNotEmpty && scannedIds.contains(id));
+
+                              if (hasScanned) return false;
+
+                              if (_searchQuery.isEmpty) return true;
+                              final name =
+                                  (data['name'] as String? ?? '').toLowerCase();
+                              return name.contains(_searchQuery);
+                            }).toList();
+
+                            // Sort by name
+                            unscanned.sort((a, b) {
+                              final aName = (a['name'] as String? ?? '');
+                              final bName = (b['name'] as String? ?? '');
+                              return aName.compareTo(bName);
+                            });
+
+                            final totalKK = kkUsers.length;
+                            final unscannedCount = unscanned.length;
+                            final scannedCount = totalKK - unscannedCount;
+
+                            if (unscanned.isEmpty) {
+                              return _buildAllDoneState(
+                                scannedCount,
+                                totalKK,
+                                _searchQuery.isNotEmpty,
+                                bottomPadding,
+                              );
+                            }
+
+                            return Column(
+                              children: [
+                                // Stats bar
+                                Container(
+                                  margin: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 4),
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: Colors.grey.shade100),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _statChip(
+                                          label: 'Belum Scan',
+                                          value: unscannedCount,
+                                          color: Colors.orange),
+                                      const SizedBox(width: 12),
+                                      _statChip(
+                                          label: 'Sudah Scan',
+                                          value: scannedCount,
+                                          color: Colors.green),
+                                      const SizedBox(width: 12),
+                                      _statChip(
+                                          label: 'Total KK',
+                                          value: totalKK,
+                                          color: Colors.blue),
+                                    ],
+                                  ),
+                                ),
+
+                                Expanded(
+                                  child: ListView.builder(
+                                    padding: EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      80 + (bottomPadding > 0 ? bottomPadding : 16),
+                                    ),
+                                    itemCount: unscanned.length,
+                                    itemBuilder: (context, index) {
+                                      final data = unscanned[index];
+                                      final name = data['name'] as String? ?? '-';
+                                      final noKK = (data['noKK'] as String? ?? '').isNotEmpty
+                                          ? data['noKK'] as String
+                                          : (data['code'] as String? ?? '-');
+                                      final address = data['address'] as String? ??
+                                          data['rt'] as String? ?? '';
+
+                                      return Container(
+                                        margin: const EdgeInsets.only(bottom: 10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                              color: Colors.orange.shade100),
+                                        ),
+                                        child: ListTile(
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  horizontal: 14, vertical: 6),
+                                          leading: UserAvatar(
+                                            userData: data,
+                                            radius: 20,
+                                          ),
+                                          title: Text(
+                                            name,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14),
+                                          ),
+                                          subtitle: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              if (noKK.isNotEmpty && _canSeePrivateData)
+                                                Text(
+                                                  'No. KK: $noKK',
+                                                  style: TextStyle(
+                                                      color: Colors.grey.shade500,
+                                                      fontSize: 11),
+                                                ),
+                                              if (address.isNotEmpty)
+                                                Text(
+                                                  address,
+                                                  style: TextStyle(
+                                                      color: Colors.grey.shade400,
+                                                      fontSize: 11),
+                                                ),
+                                            ],
+                                          ),
+                                          isThreeLine: address.isNotEmpty,
+                                          trailing: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              'Belum',
+                                              style: TextStyle(
+                                                  color: Colors.orange.shade700,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUnifiedHeader(
+    BuildContext context,
+    Color primaryColor,
+    bool isToday,
+  ) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    final secondaryColor = AppTheme.secondaryColor;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            primaryColor,
+            secondaryColor,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
         ],
       ),
-      body: Column(
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // Header tanggal dengan gradient
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.orange.shade400, Colors.deepOrange.shade400],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          // Dekorasi lingkaran kanan atas
+          Positioned(
+            top: -40,
+            right: -30,
+            child: IgnorePointer(
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
+          ),
+          // Dekorasi lingkaran kiri bawah
+          Positioned(
+            bottom: -30,
+            left: -30,
+            child: IgnorePointer(
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+          // Konten Header
+          Column(
+            children: [
+              SizedBox(height: topPadding + 10),
+              // Top Bar Navigation (Back Button, Title, Action Date Picker)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.maybePop(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Warga Belum Scan',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _selectDate(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.calendar_today,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Sub-header info panel terintegrasi
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
                       color: Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.person_off,
-                        color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isToday
-                              ? 'Belum Scan — Hari Ini'
-                              : 'Belum Scan — ${DateFormat('dd MMM yyyy', 'id_ID').format(_selectedDate)}',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isToday
-                              ? 'Data diperbarui secara realtime'
-                              : DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
-                                  .format(_selectedDate),
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
+                      width: 1,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => _selectDate(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.4)),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.person_off,
+                          color: Colors.white,
+                          size: 24,
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.edit_calendar,
-                              color: Colors.white, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            DateFormat('dd/MM').format(_selectedDate),
-                            style: const TextStyle(
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isToday
+                                  ? 'Belum Scan — Hari Ini'
+                                  : 'Belum Scan — ${DateFormat('dd MMM yyyy', 'id_ID').format(_selectedDate)}',
+                              style: const TextStyle(
                                 color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isToday
+                                  ? 'Data diperbarui secara realtime'
+                                  : DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
+                                      .format(_selectedDate),
+                              style: const TextStyle(
+                                color: Colors.white70,
                                 fontSize: 12,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-              decoration: InputDecoration(
-                hintText: 'Cari nama kepala keluarga...',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
-                ),
-              ),
-            ),
-          ),
-
-          // Stream builder — stream KK (Kepala Keluarga)
-          Expanded(
-            child: _isLoading 
-                ? const Center(child: CircularProgressIndicator())
-                : Builder(
-              builder: (context) {
-                final allUsers = _users;
-
-                // Filter hanya Kepala Keluarga
-                final kkUsers = allUsers.where((data) {
-                  final statusHubungan =
-                      data['statusHubungan']?.toString() ?? '';
-                  if (statusHubungan.isNotEmpty) {
-                    return statusHubungan == 'Kepala Keluarga';
-                  }
-                  final familyId = data['familyId']?.toString() ?? '';
-                  final code = data['code']?.toString() ?? '';
-                  return familyId.isEmpty || familyId == code;
-                }).toList();
-
-                final startDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0, 0);
-                final endDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
-                
-                final scannedIds = <String>{};
-                final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-
-                final history = _history;
-                final journals = _journals; 
-
-                // Kopi paste langsung dari scan_report_page.dart
-                final filteredDocs = history.where((data) {
-                  if (data['date'] != null && data['date'].toString().isNotEmpty) {
-                    return data['date'].toString().startsWith(selectedDateStr);
-                  }
-
-                  DateTime? dt;
-                  if (data['timestamp'] is String) dt = DateTime.tryParse(data['timestamp']);
-                  if (dt == null) return false;
-                  return dt.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
-                         dt.isBefore(endDate.add(const Duration(seconds: 1)));
-                }).toList();
-
-                for (var data in filteredDocs) {
-                  final uidStr = data['scannedBy']?.toString();
-                  if (uidStr != null && uidStr.isNotEmpty) {
-                    scannedIds.add(uidStr);
-                  }
-                  final kkStr = data['kkId']?.toString();
-                  if (kkStr != null && kkStr.isNotEmpty) {
-                    scannedIds.add(kkStr);
-                  }
-                }
-
-                // ALSO check DuesJournal (Pembayaran Manual / Tagihan Harian)
-                if (journals.isNotEmpty) {
-                  for (var data in journals) {
-                    final type = data['type']?.toString() ?? '';
-                    final dateStr = data['date']?.toString() ?? '';
-                    final paidDates = data['paidDates'];
-                    
-                    bool isMatch = false;
-                    if (paidDates != null && paidDates is List) {
-                      if (paidDates.contains(selectedDateStr)) {
-                        isMatch = true;
-                      }
-                    } else if (dateStr.startsWith(selectedDateStr)) {
-                       if (type == 'Harian' || type == 'Jimpitan' || type == 'Jimpitan Default') {
-                          isMatch = true;
-                       }
-                    }
-
-                    if (isMatch) { // Menyembunyikan yang nilainya lebih besar dari nol
-                      final kkStr = data['kkId']?.toString();
-                      if (kkStr != null && kkStr.isNotEmpty) {
-                        scannedIds.add(kkStr);
-                      }
-                    }
-                  }
-                }
-
-
-                    // Filter KK yang belum scan:
-                    final unscanned = kkUsers.where((data) {
-                  final uniqueCode = data['uniqueCode']?.toString() ?? '';
-                  final kkId = data['kkId']?.toString() ?? '';
-                  final code = data['code']?.toString() ?? '';
-                  final noKK = data['noKK']?.toString() ?? '';
-                  final familyId = data['familyId']?.toString() ?? '';
-                  final id = data['id']?.toString() ?? '';
-
-                  final hasScanned = (uniqueCode.isNotEmpty && scannedIds.contains(uniqueCode)) ||
-                      (kkId.isNotEmpty && scannedIds.contains(kkId)) ||
-                      (code.isNotEmpty && scannedIds.contains(code)) ||
-                      (noKK.isNotEmpty && scannedIds.contains(noKK)) ||
-                      (familyId.isNotEmpty && scannedIds.contains(familyId)) ||
-                      (id.isNotEmpty && scannedIds.contains(id));
-
-                  if (hasScanned) return false;
-
-                      if (_searchQuery.isEmpty) return true;
-                      final name =
-                          (data['name'] as String? ?? '').toLowerCase();
-                      return name.contains(_searchQuery);
-                    }).toList();
-
-                    // Sort by name
-                    unscanned.sort((a, b) {
-                      final aName = (a['name'] as String? ?? '');
-                      final bName = (b['name'] as String? ?? '');
-                      return aName.compareTo(bName);
-                    });
-
-                    final totalKK = kkUsers.length;
-                    final unscannedCount = unscanned.length;
-                    final scannedCount = totalKK - unscannedCount;
-
-                    if (unscanned.isEmpty) {
-                      return _buildAllDoneState(scannedCount, totalKK,
-                          _searchQuery.isNotEmpty);
-                    }
-
-                    return Column(
-                      children: [
-                        // Stats bar
-                        Container(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
-                          padding: const EdgeInsets.all(14),
+                      GestureDetector(
+                        onTap: () => _selectDate(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border:
-                                Border.all(color: Colors.grey.shade100),
+                            color: Colors.white.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.4),
+                            ),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              _statChip(
-                                  label: 'Belum Scan',
-                                  value: unscannedCount,
-                                  color: Colors.orange),
-                              const SizedBox(width: 12),
-                              _statChip(
-                                  label: 'Sudah Scan',
-                                  value: scannedCount,
-                                  color: Colors.green),
-                              const SizedBox(width: 12),
-                              _statChip(
-                                  label: 'Total KK',
-                                  value: totalKK,
-                                  color: Colors.blue),
+                              const Icon(Icons.edit_calendar,
+                                  color: Colors.white, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                DateFormat('dd/MM').format(_selectedDate),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-
-                        Expanded(
-                          child: ListView.builder(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                            itemCount: unscanned.length,
-                            itemBuilder: (context, index) {
-                              final data = unscanned[index];
-                              final name =
-                                  data['name'] as String? ?? '-';
-                              final noKK = (data['noKK'] as String? ?? '')
-                                  .isNotEmpty
-                                  ? data['noKK'] as String
-                                  : (data['code'] as String? ?? '-');
-                              final address =
-                                  data['address'] as String? ??
-                                      data['rt'] as String? ?? '';
-
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                      color: Colors.orange.shade100),
-                                ),
-                                child: ListTile(
-                                  contentPadding:
-                                      const EdgeInsets.symmetric(
-                                          horizontal: 14, vertical: 6),
-                                  leading: UserAvatar(
-                                    userData: data,
-                                    radius: 20,
-                                  ),
-                                  title: Text(
-                                    name,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (noKK.isNotEmpty && _canSeePrivateData)
-                                        Text(
-                                          'No. KK: $noKK',
-                                          style: TextStyle(
-                                              color: Colors.grey.shade500,
-                                              fontSize: 11),
-                                        ),
-                                      if (address.isNotEmpty)
-                                        Text(
-                                          address,
-                                          style: TextStyle(
-                                              color: Colors.grey.shade400,
-                                              fontSize: 11),
-                                        ),
-                                    ],
-                                  ),
-                                  isThreeLine: address.isNotEmpty,
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.shade50,
-                                      borderRadius:
-                                          BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      'Belum',
-                                      style: TextStyle(
-                                          color: Colors.orange.shade700,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-              },
-            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -518,39 +661,46 @@ class _UnscannedResidentsPageState extends State<UnscannedResidentsPage> {
     );
   }
 
-  Widget _buildAllDoneState(int scannedCount, int total, bool isFiltered) {
+  Widget _buildAllDoneState(int scannedCount, int total, bool isFiltered, double bottomPadding) {
     if (isFiltered) {
-      return const Center(
-          child: Text('Tidak ada KK yang cocok dengan pencarian.'));
+      return Padding(
+        padding: EdgeInsets.only(bottom: 80 + (bottomPadding > 0 ? bottomPadding : 16)),
+        child: const Center(
+          child: Text('Tidak ada KK yang cocok dengan pencarian.'),
+        ),
+      );
     }
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              shape: BoxShape.circle,
+    return Padding(
+      padding: EdgeInsets.only(bottom: 80 + (bottomPadding > 0 ? bottomPadding : 16)),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.check_circle,
+                  color: Colors.green.shade400, size: 64),
             ),
-            child: Icon(Icons.check_circle,
-                color: Colors.green.shade400, size: 64),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Semua KK Sudah Scan!',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B)),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '$scannedCount dari $total KK sudah discan pada hari ini.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-          ),
-        ],
+            const SizedBox(height: 20),
+            const Text(
+              'Semua KK Sudah Scan!',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$scannedCount dari $total KK sudah discan pada hari ini.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+            ),
+          ],
+        ),
       ),
     );
   }

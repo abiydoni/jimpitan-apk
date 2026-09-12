@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'dart:convert';
 import 'package:jimpitan/utils/app_theme.dart';
@@ -151,8 +152,8 @@ class _SettingsPageState extends State<SettingsPage> {
       valueListenable: AppTheme.primaryColorNotifier,
       builder: (context, themeColor, child) {
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Pengaturan Desa'),
+          appBar: const CustomGradientAppBar(
+            titleText: 'Pengaturan Desa',
           ),
           body: _isLoading 
             ? const Center(child: CircularProgressIndicator())
@@ -299,7 +300,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               children: AppTheme.availableThemes.map((themeData) {
                                 final name = themeData['name'] as String;
                                 final color = themeData['color'] as Color;
-                                final isSelected = themeColor == color;
+                                final isSelected = themeColor.toARGB32() == color.toARGB32();
 
                                 return InkWell(
                                   onTap: () async {
@@ -310,10 +311,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                       if (villageData != null && villageData['config'] != null) {
                                         var rawConf = villageData['config'];
                                         if (rawConf is String) {
-                                          rawConf = json.decode(rawConf);
-                                        }
-                                        if (rawConf is String) {
-                                          rawConf = json.decode(rawConf);
+                                          try {
+                                            rawConf = json.decode(rawConf);
+                                            if (rawConf is String) rawConf = json.decode(rawConf);
+                                          } catch (_) {}
                                         }
                                         if (rawConf is Map) {
                                           config = Map<String, dynamic>.from(rawConf);
@@ -324,13 +325,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                         'config': config,
                                       });
                                       if (context.mounted) {
-                                        CustomToast.show(context, 'Tema desa berhasil diperbarui untuk seluruh warga!');
+                                        CustomToast.show(context, 'Tema desa diperbarui ke $name!');
                                       }
                                     } catch (e) {
                                       debugPrint('Gagal menyimpan tema desa: $e');
-                                      if (context.mounted) {
-                                        CustomToast.show(context, 'Gagal menyimpan tema: $e', isError: true);
-                                      }
                                     }
                                   },
                                   borderRadius: BorderRadius.circular(12),
@@ -353,7 +351,23 @@ class _SettingsPageState extends State<SettingsPage> {
                                           decoration: BoxDecoration(
                                             color: color,
                                             shape: BoxShape.circle,
+                                            boxShadow: isSelected
+                                                ? [
+                                                    BoxShadow(
+                                                      color: color.withValues(alpha: 0.4),
+                                                      blurRadius: 6,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ]
+                                                : null,
                                           ),
+                                          child: isSelected
+                                              ? const Icon(
+                                                  Icons.check,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                )
+                                              : null,
                                         ),
                                         const SizedBox(height: 8),
                                         Text(

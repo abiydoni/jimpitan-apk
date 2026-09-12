@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:jimpitan/utils/app_theme.dart';
@@ -330,15 +331,14 @@ class _FinancialJournalsPageState extends State<FinancialJournalsPage> with Rout
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Buku Kas Umum'),
-        backgroundColor: Colors.white,
+      appBar: CustomGradientAppBar(
+        titleText: 'Buku Kas Umum',
         actions: [
           IconButton(
             icon: const Icon(
               Icons.share_rounded,
               size: 24,
-              color: Color(0xFF1E293B),
+              color: Colors.white,
             ),
             onPressed: _shareBukuKasUmumPdf,
             tooltip: 'Bagikan PDF Buku Kas Umum',
@@ -348,12 +348,11 @@ class _FinancialJournalsPageState extends State<FinancialJournalsPage> with Rout
               icon: const Icon(
                 Icons.add_circle,
                 size: 28,
-                color: Color(0xFF1E293B),
+                color: Colors.white,
               ),
               onPressed: _showAddManualJournalDialog,
               tooltip: 'Tambah Jurnal',
             ),
-          const SizedBox(width: 8),
         ],
       ),
       body: Column(

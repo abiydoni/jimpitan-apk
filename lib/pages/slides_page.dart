@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
@@ -480,16 +481,15 @@ class _SlidesPageState extends State<SlidesPage> {
       valueListenable: AppTheme.primaryColorNotifier,
       builder: (context, themeColor, child) {
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Manajemen Slideshow'),
+          appBar: CustomGradientAppBar(
+            titleText: 'Manajemen Slideshow',
             actions: [
               if (_canCreate)
                 IconButton(
-                  icon: Icon(Icons.add_circle, color: AppTheme.primaryColor, size: 28),
+                  icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
                   onPressed: () => _showSlideForm(),
                   tooltip: 'Tambah Slide',
                 ),
-              const SizedBox(width: 8),
             ],
           ),
           body: FutureBuilder<List<dynamic>>(

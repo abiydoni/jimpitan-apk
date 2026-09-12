@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:jimpitan/utils/app_theme.dart';
@@ -394,15 +395,14 @@ class _DuesKkListPageState extends State<DuesKkListPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(widget.tariffData['name'] ?? 'Detail Iuran'),
-        backgroundColor: Colors.white,
+      appBar: CustomGradientAppBar(
+        titleText: widget.tariffData['name'] ?? 'Detail Iuran',
         actions: [
           IconButton(
             icon: const Icon(
               Icons.share_rounded,
               size: 24,
-              color: Color(0xFF1E293B),
+              color: Colors.white,
             ),
             onPressed: _shareBukuKasKhususPdf,
             tooltip: 'Bagikan PDF Buku Kas Khusus',
@@ -412,18 +412,18 @@ class _DuesKkListPageState extends State<DuesKkListPage>
               icon: const Icon(
                 Icons.add_circle,
                 size: 28,
-                color: Color(0xFF1E293B),
+                color: Colors.white,
               ),
               onPressed: _showAddManualJournalDialog,
               tooltip: 'Tambah Jurnal Khusus',
             ),
-          const SizedBox(width: 8),
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppTheme.primaryColor,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: AppTheme.primaryColor,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
           tabs: const [
             Tab(text: 'Tagihan Warga', icon: Icon(Icons.people)),
             Tab(

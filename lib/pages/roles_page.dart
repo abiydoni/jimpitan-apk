@@ -1,5 +1,6 @@
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:jimpitan/models/menu_item.dart';
 import 'package:jimpitan/utils/menu_helper.dart';
@@ -307,15 +308,14 @@ class _RolesPageState extends State<RolesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Matriks Akses Menu'),
+      appBar: CustomGradientAppBar(
+        titleText: 'Matriks Akses Menu',
         actions: [
           IconButton(
-            icon: const Icon(Icons.save),
+            icon: const Icon(Icons.save, color: Colors.white),
             tooltip: 'Simpan',
             onPressed: _isLoading ? null : _savePermissions,
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: _isLoading

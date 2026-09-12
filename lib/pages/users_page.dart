@@ -1,5 +1,6 @@
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
@@ -1633,9 +1634,13 @@ class _UsersPageState extends State<UsersPage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Manajemen Warga'),
+        appBar: CustomGradientAppBar(
+          titleText: 'Manajemen Warga',
           bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white60,
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
             tabs: [
               Tab(text: 'Warga Aktif'),
               Tab(text: 'Pendaftar Baru'),
@@ -1678,15 +1683,14 @@ class _UsersPageState extends State<UsersPage> {
               ),
             if (widget.permissions['create'] == true || widget.currentUserRoles?.contains('SUPER_ADMIN') == true)
               IconButton(
-                icon: Icon(
+                icon: const Icon(
                   Icons.add_circle,
-                  color: AppTheme.primaryColor,
+                  color: Colors.white,
                   size: 28,
                 ),
                 onPressed: () => _showUserFormDialog(),
                 tooltip: 'Tambah Data Warga',
               ),
-            const SizedBox(width: 8),
           ],
         ),
         body: Column(

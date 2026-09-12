@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_gradient_app_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:jimpitan/utils/app_theme.dart';
@@ -345,15 +346,15 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     if (_userData == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Profil Saya')),
-        body: const Center(child: Text('Data profil tidak ditemukan di database.')),
+      return const Scaffold(
+        appBar: CustomGradientAppBar(titleText: 'Profil Saya'),
+        body: Center(child: Text('Data profil tidak ditemukan di database.')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil Saya'),
+      appBar: const CustomGradientAppBar(
+        titleText: 'Profil Saya',
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

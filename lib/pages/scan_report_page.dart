@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../widgets/user_avatar.dart';
@@ -201,201 +202,347 @@ class _ScanReportPageState extends State<ScanReportPage> with RouteAware {
     );
   }
 
+  Widget _buildUnifiedHeader(
+    BuildContext context,
+    Color primaryColor,
+    int totalAmount,
+    int totalWarga,
+    int totalScan,
+    int totalTagihan,
+    int totalManual,
+    NumberFormat currencyFormat,
+  ) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    final secondaryColor = AppTheme.secondaryColor;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            primaryColor,
+            secondaryColor,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Dekorasi lingkaran kanan atas
+          Positioned(
+            top: -40,
+            right: -30,
+            child: IgnorePointer(
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+          // Dekorasi lingkaran kiri bawah
+          Positioned(
+            bottom: -30,
+            left: -30,
+            child: IgnorePointer(
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+          // Konten Header
+          Column(
+            children: [
+              SizedBox(height: topPadding + 10),
+              // Top Bar Navigation (Back Button, Title, Actions)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.maybePop(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Riwayat Scan Jimpitan',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: _handleRefresh,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.refresh,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () => _selectDate(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.date_range,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Summary Stats Area
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Total Terkumpul',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      currencyFormat.format(totalAmount),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 12),
+                      child: Text(
+                        DateFormat('EEEE, dd MMM yyyy', 'id_ID').format(_selectedDate),
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(child: _buildStatItem(Icons.people, '$totalWarga', 'Total Warga')),
+                        const SizedBox(width: 4),
+                        Expanded(child: _buildStatItem(Icons.qr_code_scanner, '$totalScan', 'Via Scan')),
+                        const SizedBox(width: 4),
+                        Expanded(child: _buildStatItem(Icons.event_available, '$totalTagihan', 'Via Tagihan')),
+                        const SizedBox(width: 4),
+                        Expanded(child: _buildStatItem(Icons.edit_note, '$totalManual', 'Via Manual')),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     DateTime startDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0, 0);
     DateTime endDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Riwayat Scan Jimpitan'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _handleRefresh,
-            tooltip: 'Muat Ulang',
+    return ValueListenableBuilder<Color>(
+      valueListenable: AppTheme.primaryColorNotifier,
+      builder: (context, primaryColor, _) {
+        final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
           ),
-          IconButton(
-            icon: const Icon(Icons.date_range),
-            onPressed: () => _selectDate(context),
-            tooltip: 'Pilih Tanggal',
-          ),
-        ],
-      ),
-      body: Builder(
-        builder: (context) {
-          if (_isLoading && _historyList.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (_error != null && _historyList.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Terjadi kesalahan: $_error'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _handleRefresh,
-                    child: const Text('Coba Lagi'),
-                  )
-                ],
-              ),
-            );
-          }
-
-
-          // Local filtering and sorting to avoid composite index requirement
-          final allDocs = _historyList;
-          final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-
-          final filteredDocs = allDocs.where((data) {
-            if (data['date'] != null && data['date'].toString().isNotEmpty) {
-              return data['date'].toString().startsWith(selectedDateStr);
-            }
-
-            DateTime? dt;
-            if (data['timestamp'] is String) dt = DateTime.tryParse(data['timestamp']);
-            if (dt == null) return false;
-            return dt.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
-                   dt.isBefore(endDate.add(const Duration(seconds: 1)));
-          }).toList();
-
-          filteredDocs.sort((a, b) {
-            DateTime? tsA;
-            if (a['timestamp'] is String) tsA = DateTime.tryParse(a['timestamp']);
-            DateTime? tsB;
-            if (b['timestamp'] is String) tsB = DateTime.tryParse(b['timestamp']);
-            
-            if (tsA == null || tsB == null) return 0;
-            return tsB.compareTo(tsA); // descending
-          });
-
-          // Hitung Total Saldo dan Statistik
-          int totalAmount = 0;
-          int totalScan = 0;
-          int totalTagihan = 0;
-          int totalManual = 0;
-
-          for (var data in filteredDocs) {
-            totalAmount += (data['amount'] as num?)?.toInt() ?? 0;
-            if (data['type'] == 'TAGIHAN') {
-              totalTagihan++;
-            } else if (data['type'] == 'MANUAL') {
-              totalManual++;
-            } else {
-              totalScan++;
-            }
-          }
-          int totalWarga = filteredDocs.length;
-
-          final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-
-          return RefreshIndicator(
-            onRefresh: _handleRefresh,
-            color: AppTheme.primaryColor,
-            child: Column(
-              children: [
-                // Summary Header
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(24),
-                    bottomRight: Radius.circular(24),
-                  ),
-                  child: Stack(
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC),
+            body: Builder(
+              builder: (context) {
+                if (_isLoading && _historyList.isEmpty) {
+                  return Column(
                     children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.primaryColor,
-                              AppTheme.secondaryColor,
+                      _buildUnifiedHeader(
+                        context,
+                        primaryColor,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0),
+                      ),
+                      const Expanded(child: Center(child: CircularProgressIndicator())),
+                    ],
+                  );
+                }
+                if (_error != null && _historyList.isEmpty) {
+                  return Column(
+                    children: [
+                      _buildUnifiedHeader(
+                        context,
+                        primaryColor,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('Terjadi kesalahan: $_error'),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _handleRefresh,
+                                child: const Text('Coba Lagi'),
+                              )
                             ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Total Terkumpul',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              currencyFormat.format(totalAmount),
-                              style: const TextStyle(
-                                color: Colors.white, 
-                                fontSize: 24, 
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2, bottom: 12),
-                              child: Text(
-                                DateFormat('EEEE, dd MMM yyyy', 'id_ID').format(_selectedDate),
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                Expanded(child: _buildStatItem(Icons.people, '$totalWarga', 'Total Warga')),
-                                const SizedBox(width: 4),
-                                Expanded(child: _buildStatItem(Icons.qr_code_scanner, '$totalScan', 'Via Scan')),
-                                const SizedBox(width: 4),
-                                Expanded(child: _buildStatItem(Icons.event_available, '$totalTagihan', 'Via Tagihan')),
-                                const SizedBox(width: 4),
-                                Expanded(child: _buildStatItem(Icons.edit_note, '$totalManual', 'Via Manual')),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Dekorasi lingkaran 1
-                      Positioned(
-                        top: -40,
-                        right: -40,
-                        child: Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.1),
-                          ),
-                        ),
-                      ),
-                      // Dekorasi lingkaran 2
-                      Positioned(
-                        bottom: -30,
-                        left: -30,
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.1),
                           ),
                         ),
                       ),
                     ],
-                  ),
-                ),
-                
-                // List Transaksi
-                Expanded(
-                  child: filteredDocs.isEmpty
-                    ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-                          const Center(child: Text('Tidak ada data scan pada tanggal ini.')),
-                        ],
-                      )
-                    : ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  );
+                }
+
+
+                // Local filtering and sorting to avoid composite index requirement
+                final allDocs = _historyList;
+                final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+                final filteredDocs = allDocs.where((data) {
+                  if (data['date'] != null && data['date'].toString().isNotEmpty) {
+                    return data['date'].toString().startsWith(selectedDateStr);
+                  }
+
+                  DateTime? dt;
+                  if (data['timestamp'] is String) dt = DateTime.tryParse(data['timestamp']);
+                  if (dt == null) return false;
+                  return dt.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
+                         dt.isBefore(endDate.add(const Duration(seconds: 1)));
+                }).toList();
+
+                filteredDocs.sort((a, b) {
+                  DateTime? tsA;
+                  if (a['timestamp'] is String) tsA = DateTime.tryParse(a['timestamp']);
+                  DateTime? tsB;
+                  if (b['timestamp'] is String) tsB = DateTime.tryParse(b['timestamp']);
+                  
+                  if (tsA == null || tsB == null) return 0;
+                  return tsB.compareTo(tsA); // descending
+                });
+
+                // Hitung Total Saldo dan Statistik
+                int totalAmount = 0;
+                int totalScan = 0;
+                int totalTagihan = 0;
+                int totalManual = 0;
+
+                for (var data in filteredDocs) {
+                  totalAmount += (data['amount'] as num?)?.toInt() ?? 0;
+                  if (data['type'] == 'TAGIHAN') {
+                    totalTagihan++;
+                  } else if (data['type'] == 'MANUAL') {
+                    totalManual++;
+                  } else {
+                    totalScan++;
+                  }
+                }
+                int totalWarga = filteredDocs.length;
+
+                final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+                return RefreshIndicator(
+                  onRefresh: _handleRefresh,
+                  color: AppTheme.primaryColor,
+                  child: Column(
+                    children: [
+                      // Unified Header
+                      _buildUnifiedHeader(
+                        context,
+                        primaryColor,
+                        totalAmount,
+                        totalWarga,
+                        totalScan,
+                        totalTagihan,
+                        totalManual,
+                        currencyFormat,
+                      ),
+                      
+                      // List Transaksi
+                      Expanded(
+                        child: filteredDocs.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                                const Center(child: Text('Tidak ada data scan pada tanggal ini.')),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(
+                                16,
+                                8,
+                                16,
+                                80 + (bottomPadding > 0 ? bottomPadding : 16),
+                              ),
                         itemCount: filteredDocs.length,
                         itemBuilder: (context, index) {
                           final data = filteredDocs[index] as Map<String, dynamic>;
@@ -490,13 +637,16 @@ class _ScanReportPageState extends State<ScanReportPage> with RouteAware {
                           ),
                         );
                       },
-                      ),
-                ),
-              ],
-            ),
-          );
-        },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
+  },
+);
+    }
   }
-}

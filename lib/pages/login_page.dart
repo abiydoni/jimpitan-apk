@@ -51,12 +51,10 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         try {
           final GoogleSignIn googleSignIn = GoogleSignIn(
+            scopes: ['email'],
             serverClientId:
                 '230006065254-4qbk0vee5limtfve7lajnbmpdunvmjpg.apps.googleusercontent.com',
           );
-          try {
-            await googleSignIn.signOut();
-          } catch (_) {}
 
           final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
@@ -67,10 +65,6 @@ class _LoginPageState extends State<LoginPage> {
 
           final GoogleSignInAuthentication googleAuth =
               await googleUser.authentication;
-
-          if (googleAuth.idToken == null) {
-            throw Exception('Google Auth idToken is null. (accessToken: ${googleAuth.accessToken != null})');
-          }
 
           final AuthCredential credential = GoogleAuthProvider.credential(
             accessToken: googleAuth.accessToken,
@@ -88,6 +82,17 @@ class _LoginPageState extends State<LoginPage> {
             );
           } catch (fallbackError, fallbackSt) {
             EasyLoading.dismiss();
+            Map<String, dynamic>? runtimeFingerprints;
+            try {
+              const platform = MethodChannel('jimpitan/signature_info');
+              final res = await platform.invokeMethod('getSignatureFingerprints');
+              if (res is Map) {
+                runtimeFingerprints = Map<String, dynamic>.from(res);
+              }
+            } catch (sigErr) {
+              runtimeFingerprints = {'error': sigErr.toString()};
+            }
+
             if (mounted) {
               await showDialog(
                 context: context,
@@ -98,6 +103,32 @@ class _LoginPageState extends State<LoginPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (runtimeFingerprints != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '🔑 Sertifikat Asli di HP ini:',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown),
+                                ),
+                                const SizedBox(height: 4),
+                                SelectableText('SHA-1:\n${runtimeFingerprints['sha1'] ?? '-'}'),
+                                const SizedBox(height: 4),
+                                SelectableText('SHA-256:\n${runtimeFingerprints['sha256'] ?? '-'}'),
+                                const SizedBox(height: 4),
+                                SelectableText('Package:\n${runtimeFingerprints['packageName'] ?? '-'}'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         const Text(
                           '1. Native GoogleSignIn Error:',
                           style: TextStyle(fontWeight: FontWeight.bold),

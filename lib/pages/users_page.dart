@@ -262,17 +262,91 @@ class _UsersPageState extends State<UsersPage> {
           String nik = getCol(row, 'nik', 1, '');
           String namaLengkap = getCol(row, 'nama lengkap', 2, '');
 
-          if (namaLengkap.isEmpty || nik.isEmpty) continue; // Skip invalid row
+          if (noKK.isEmpty || nik.isEmpty || namaLengkap.isEmpty) continue; // Wajib No KK, NIK, dan Nama Lengkap
 
-          String statusHub = getCol(row, 'status hubungan', 3, 'Warga');
-          String statusKawin = getCol(row, 'status perkawinan', 4, 'Belum Kawin');
-          String jk = getCol(row, 'jenis kelamin', 5, 'Laki-Laki');
+          // Normalisasi Jenis Kelamin ('Laki-laki' / 'Perempuan')
+          String rawJk = getCol(row, 'jenis kelamin', 5, 'Laki-laki').toLowerCase();
+          String jk = (rawJk.contains('perempuan') || rawJk == 'p' || rawJk.contains('wanita'))
+              ? 'Perempuan'
+              : 'Laki-laki';
+
+          // Normalisasi Status Hubungan ('Kepala Keluarga', 'Istri', 'Anak', 'Anggota Keluarga')
+          String rawHub = getCol(row, 'status hubungan', 3, 'Anggota Keluarga').toLowerCase();
+          String statusHub = 'Anggota Keluarga';
+          if (rawHub.contains('kepala') || rawHub.contains('suami') || rawHub == 'kk') {
+            statusHub = 'Kepala Keluarga';
+          } else if (rawHub.contains('istri')) {
+            statusHub = 'Istri';
+          } else if (rawHub.contains('anak')) {
+            statusHub = 'Anak';
+          }
+
+          // Normalisasi Status Perkawinan ('Belum Kawin', 'Kawin', 'Cerai Hidup', 'Cerai Mati')
+          String rawKawin = getCol(row, 'status perkawinan', 4, 'Belum Kawin').toLowerCase();
+          String statusKawin = 'Belum Kawin';
+          if (rawKawin.contains('hidup')) {
+            statusKawin = 'Cerai Hidup';
+          } else if (rawKawin.contains('mati') || rawKawin.contains('duda') || rawKawin.contains('janda')) {
+            statusKawin = 'Cerai Mati';
+          } else if (rawKawin.contains('kawin') || rawKawin.contains('menikah') || rawKawin.contains('nikah')) {
+            statusKawin = 'Kawin';
+          }
+
           String tmptLahir = getCol(row, 'tempat lahir', 6, '');
           String tglLahir = getCol(row, 'tanggal lahir', 7, '');
           String alamat = getCol(row, 'alamat', 8, '');
-          String agama = getCol(row, 'agama', 9, 'Islam');
-          String pekerjaan = getCol(row, 'pekerjaan', 10, 'Lainnya');
-          String statusHidup = getCol(row, 'status hidup', 11, 'Hidup');
+
+          // Normalisasi Agama ('Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu', 'Lainnya')
+          String rawAgama = getCol(row, 'agama', 9, 'Islam').toLowerCase();
+          String agama = 'Islam';
+          if (rawAgama.contains('kristen') || rawAgama.contains('protestan')) {
+            agama = 'Kristen';
+          } else if (rawAgama.contains('katolik')) {
+            agama = 'Katolik';
+          } else if (rawAgama.contains('hindu')) {
+            agama = 'Hindu';
+          } else if (rawAgama.contains('buddha') || rawAgama.contains('budha')) {
+            agama = 'Buddha';
+          } else if (rawAgama.contains('konghucu') || rawAgama.contains('khonghucu')) {
+            agama = 'Konghucu';
+          } else if (rawAgama.contains('lain')) {
+            agama = 'Lainnya';
+          }
+
+          // Normalisasi Pekerjaan ('PNS', 'TNI/Polri', 'Karyawan Swasta', 'Wiraswasta', 'Pelajar/Mahasiswa', 'Mengurus Rumah Tangga', 'Petani/Pekebun', 'Buruh', 'Belum/Tidak Bekerja', 'Lainnya')
+          String rawPekerjaan = getCol(row, 'pekerjaan', 10, 'Belum/Tidak Bekerja').toLowerCase();
+          String pekerjaan = 'Belum/Tidak Bekerja';
+          if (rawPekerjaan.contains('pns') || rawPekerjaan.contains('asn') || rawPekerjaan.contains('negeri')) {
+            pekerjaan = 'PNS';
+          } else if (rawPekerjaan.contains('tni') || rawPekerjaan.contains('polri') || rawPekerjaan.contains('polisi') || rawPekerjaan.contains('tentara')) {
+            pekerjaan = 'TNI/Polri';
+          } else if (rawPekerjaan.contains('swasta') || rawPekerjaan.contains('karyawan') || rawPekerjaan.contains('pegawai swasta')) {
+            pekerjaan = 'Karyawan Swasta';
+          } else if (rawPekerjaan.contains('wira') || rawPekerjaan.contains('usaha') || rawPekerjaan.contains('dagang') || rawPekerjaan.contains('bisnis')) {
+            pekerjaan = 'Wiraswasta';
+          } else if (rawPekerjaan.contains('pelajar') || rawPekerjaan.contains('mahasiswa') || rawPekerjaan.contains('sekolah') || rawPekerjaan.contains('santri')) {
+            pekerjaan = 'Pelajar/Mahasiswa';
+          } else if (rawPekerjaan.contains('rumah tangga') || rawPekerjaan.contains('irt') || rawPekerjaan.contains('ibu rumah') || rawPekerjaan.contains('mengurus')) {
+            pekerjaan = 'Mengurus Rumah Tangga';
+          } else if (rawPekerjaan.contains('petani') || rawPekerjaan.contains('kebun') || rawPekerjaan.contains('tani') || rawPekerjaan.contains('pekebun')) {
+            pekerjaan = 'Petani/Pekebun';
+          } else if (rawPekerjaan.contains('buruh') || rawPekerjaan.contains('tukang')) {
+            pekerjaan = 'Buruh';
+          } else if (rawPekerjaan.contains('lain')) {
+            pekerjaan = 'Lainnya';
+          }
+
+          // Normalisasi Status Hidup ('Aktif', 'Tidak Aktif', 'Meninggal', 'Pindah')
+          String rawStatusHidup = getCol(row, 'status hidup', 11, 'Aktif').toLowerCase();
+          String statusHidup = 'Aktif';
+          if (rawStatusHidup.contains('meninggal') || rawStatusHidup.contains('mati') || rawStatusHidup.contains('wafat')) {
+            statusHidup = 'Meninggal';
+          } else if (rawStatusHidup.contains('pindah')) {
+            statusHidup = 'Pindah';
+          } else if (rawStatusHidup.contains('tidak') || rawStatusHidup.contains('non')) {
+            statusHidup = 'Tidak Aktif';
+          }
+
           String email = getCol(row, 'email', 12, '');
           if (email.isNotEmpty && !email.contains('@')) email = ''; // Sanitasi email
           String noHp = getCol(row, 'no hp', 13, '');
@@ -281,7 +355,7 @@ class _UsersPageState extends State<UsersPage> {
 
           List<String> roles = rolesStr
               .split(',')
-              .map((e) => e.trim())
+              .map((e) => e.trim().toUpperCase())
               .where((e) => e.isNotEmpty)
               .toList();
           if (roles.isEmpty) roles = ['WARGA'];

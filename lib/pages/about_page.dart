@@ -167,7 +167,7 @@ class _AboutPageState extends State<AboutPage> {
                                   Icon(_is64Bit ? Icons.bolt_rounded : Icons.phone_android_rounded, size: 14, color: _is64Bit ? Colors.blue.shade700 : Colors.amber.shade800),
                                   const SizedBox(width: 4),
                                   Text(
-                                    _is64Bit ? '64-bit (HP Baru)' : '32-bit (HP Lama)',
+                                    _is64Bit ? '64-bit' : '32-bit (HP Lama)',
                                     style: TextStyle(
                                       color: _is64Bit ? Colors.blue.shade800 : Colors.amber.shade900,
                                       fontWeight: FontWeight.w600,

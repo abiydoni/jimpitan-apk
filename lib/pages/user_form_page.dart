@@ -921,6 +921,11 @@ class _UserFormPageState extends State<UserFormPage> {
   Future<void> _saveData() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_noKKController.text.trim().isEmpty) {
+      CustomToast.show(context, 'Nomor Kartu Keluarga (No KK) wajib diisi', isError: true);
+      return;
+    }
+
     // Validasi member
     bool isMembersValid = true;
     for (var member in _familyMembers) {
@@ -933,7 +938,7 @@ class _UserFormPageState extends State<UserFormPage> {
     }
 
     if (!isMembersValid) {
-      CustomToast.show(context, 'Harap lengkapi NIK dan Nama untuk setiap anggota keluarga');
+      CustomToast.show(context, 'Harap lengkapi No KK, NIK, dan Nama Lengkap untuk setiap anggota keluarga', isError: true);
       return;
     }
     EasyLoading.show(status: 'Menyimpan...');
@@ -1117,13 +1122,19 @@ class _UserFormPageState extends State<UserFormPage> {
                           TextFormField(
                             controller: _noKKController,
                             decoration: _customInputDecoration(
-                              'Nomor Kartu Keluarga',
+                              'Nomor Kartu Keluarga (Wajib)',
                               Icons.credit_card,
                             ),
                             keyboardType: TextInputType.number,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
                             ],
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Nomor Kartu Keluarga wajib diisi';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -1470,11 +1481,17 @@ class _UserFormPageState extends State<UserFormPage> {
                   child: TextFormField(
                     initialValue: member['nik']?.toString(),
                     decoration: _customInputDecoration(
-                      'NIK',
+                      'NIK (Wajib)',
                       Icons.badge,
                     ).copyWith(isDense: true),
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return 'NIK wajib diisi';
+                      }
+                      return null;
+                    },
                     onChanged: (val) => member['nik'] = val,
                   ),
                 ),
@@ -1483,10 +1500,16 @@ class _UserFormPageState extends State<UserFormPage> {
                   child: TextFormField(
                     initialValue: member['namaLengkap']?.toString(),
                     decoration: _customInputDecoration(
-                      'Nama Lengkap',
+                      'Nama Lengkap (Wajib)',
                       Icons.person_outline,
                     ).copyWith(isDense: true),
                     textCapitalization: TextCapitalization.words,
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Nama Lengkap wajib diisi';
+                      }
+                      return null;
+                    },
                     onChanged: (val) => member['namaLengkap'] = val,
                   ),
                 ),

@@ -17,9 +17,9 @@ class HelpPage extends StatelessWidget {
 
   void _downloadCsvTemplate(BuildContext context) async {
     try {
-      final String csvHeader = "No KK,NIK,Nama Lengkap,Status Hubungan,Status Perkawinan,Jenis Kelamin,Tempat Lahir,Tanggal Lahir,Alamat,Agama,Pekerjaan,Status Hidup,Email,No HP,Jabatan\n";
-      final String sampleData = "3270123456789012,3270000000000001,Budi Santoso,Kepala Keluarga,Kawin,Laki-Laki,Jakarta,01-01-1980,Jl. Merdeka No 1,Islam,Swasta,Hidup,budi@email.com,08123456789,WARGA\n"
-          "3270123456789012,3270000000000002,Siti Aminah,Istri,Kawin,Perempuan,Bandung,02-02-1982,Jl. Merdeka No 1,Islam,Ibu Rumah Tangga,Hidup,siti@email.com,08129876543,WARGA\n";
+      final String csvHeader = "No KK,NIK,Nama Lengkap,Status Hubungan,Status Perkawinan,Jenis Kelamin,Tempat Lahir,Tanggal Lahir,Alamat,Agama,Pekerjaan,Status Hidup,Email,No HP,Jabatan,Kode Rumah\n";
+      final String sampleData = "3270123456789012,3270000000000001,Budi Santoso,Kepala Keluarga,Kawin,Laki-laki,Jakarta,1980-01-01,Jl. Merdeka No 1,Islam,Karyawan Swasta,Aktif,budi@email.com,08123456789,WARGA,\n"
+          "3270123456789012,3270000000000002,Siti Aminah,Istri,Kawin,Perempuan,Bandung,1982-02-02,Jl. Merdeka No 1,Islam,Mengurus Rumah Tangga,Aktif,siti@email.com,08129876543,WARGA,\n";
 
       final String csvContent = csvHeader + sampleData;
       // Convert to Uint8List for file_saver
@@ -66,9 +66,23 @@ class HelpPage extends StatelessWidget {
             title: 'Panduan Pengisian CSV',
             icon: Icons.info_outline,
             description:
-                '1. Kolom "Kode Rumah" digunakan untuk mengelompokkan keluarga. Baris dengan Kode Rumah yang sama akan masuk ke dalam 1 Kartu Keluarga yang sama.\n'
-                '2. Kolom "Tanggal Lahir" harus berformat YYYY-MM-DD (contoh: 1990-12-31).\n'
-                '3. Kolom "Jabatan" dapat diisi lebih dari satu dengan dipisahkan koma (contoh: WARGA,PENGURUS_RT).',
+                '1. Kolom Wajib:\n'
+                '   • "No KK", "NIK", dan "Nama Lengkap" WAJIB diisi. Baris tanpa No KK, NIK, atau Nama Lengkap akan dilewati otomatis oleh sistem.\n\n'
+                '2. Kolom Kode Rumah (Otomatis / Opsional):\n'
+                '   • Kolom "Kode Rumah" BISA DIKOSONGKAN. Jika dikosongkan, sistem akan otomatis membuatkan kode rumah unik secara otomatis.\n'
+                '   • Baris yang memiliki "No KK" yang sama akan otomatis dikelompokkan ke dalam 1 Kartu Keluarga / Kode Rumah yang sama.\n\n'
+                '3. Pilihan Dropdown Sesuai Form & Tabel Warga:\n'
+                '   • Jenis Kelamin: Laki-laki / Perempuan (Default: Laki-laki).\n'
+                '   • Status Hubungan: Kepala Keluarga / Istri / Anak / Anggota Keluarga (Default: Anggota Keluarga).\n'
+                '   • Status Perkawinan: Belum Kawin / Kawin / Cerai Hidup / Cerai Mati (Default: Belum Kawin).\n'
+                '   • Status Hidup: Aktif / Tidak Aktif / Meninggal / Pindah (Default: Aktif).\n'
+                '   • Agama: Islam / Kristen / Katolik / Hindu / Buddha / Konghucu / Lainnya (Default: Islam).\n'
+                '   • Pekerjaan: PNS / TNI/Polri / Karyawan Swasta / Wiraswasta / Pelajar/Mahasiswa / Mengurus Rumah Tangga / Petani/Pekebun / Buruh / Belum/Tidak Bekerja / Lainnya (Default: Belum/Tidak Bekerja).\n'
+                '   • Jabatan (Role): WARGA, ADMIN_DESA, atau peran kustom desa lainnya. Dapat diisi lebih dari satu dipisah koma, misal: WARGA,PENGURUS_RT atau WARGA,BENDAHARA (Default: WARGA).\n\n'
+                '4. Format Data & Delimiter:\n'
+                '   • Tanggal Lahir: Format YYYY-MM-DD (contoh: 1990-12-31) atau DD-MM-YYYY (contoh: 31-12-1990).\n'
+                '   • Email & No HP: Opsional. Jika diisi, email harus valid (memiliki tanda @).\n'
+                '   • File CSV dapat menggunakan pemisah tanda koma (,) maupun titik koma (;).',
           ),
         ],
       ),

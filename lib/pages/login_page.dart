@@ -330,7 +330,7 @@ class _LoginPageState extends State<LoginPage> {
                     // 3. Tombol Daftar Desa Baru
                     _buildPortalButton(
                       title: 'Daftarkan Desa Baru',
-                      subtitle: 'Untuk Admin, Coba gratis 14 Hari',
+                      subtitle: 'Untuk Admin, Coba gratis 1 Bulan',
                       icon: Icons.maps_home_work,
                       color: Colors.green,
                       onTap: () => _signInWithGoogle('REGISTER_VILLAGE'),
@@ -360,7 +360,7 @@ class _LoginPageState extends State<LoginPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text(
-                            'Masa Uji Coba (Trial) 14 Hari',
+                            'Masa Uji Coba (Trial) 1 Bulan',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.blue,
@@ -369,7 +369,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Bagi Desa/RT yang baru mendaftar, Anda otomatis mendapatkan akses fitur Premium gratis selama 14 hari penuh. Tanpa kartu kredit, 100% aman.',
+                            'Bagi Desa/RT yang baru mendaftar, Anda otomatis mendapatkan akses fitur Premium gratis selama 1 bulan penuh. Tanpa kartu kredit, 100% aman.',
                             style: TextStyle(
                               color: Colors.black87,
                               fontSize: 13,

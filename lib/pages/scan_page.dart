@@ -14,6 +14,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class ScanPage extends StatefulWidget {
   final String villageId;
@@ -51,6 +52,7 @@ class _ScanPageState extends State<ScanPage> {
   @override
   void initState() {
     super.initState();
+    WakelockPlus.enable();
     _loadScans();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -121,7 +123,22 @@ class _ScanPageState extends State<ScanPage> {
 
   Future<void> _loadScansSilent() async {
     try {
-      final histories = await ApiService.getJimpitanHistory(widget.villageId);
+      final results = await Future.wait([
+        ApiService.getJimpitanHistory(widget.villageId),
+        if (_cachedUsers == null)
+          ApiService.getUsers(widget.villageId)
+        else
+          Future.value(_cachedUsers!),
+        if (_cachedTariffs == null)
+          ApiService.getTariffs(widget.villageId)
+        else
+          Future.value(_cachedTariffs!),
+      ]);
+
+      final histories = results[0];
+      _cachedUsers = results[1];
+      _cachedTariffs = results[2];
+
       final todayStart = DateTime(
         _currentTime.year,
         _currentTime.month,
@@ -149,6 +166,7 @@ class _ScanPageState extends State<ScanPage> {
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _overlayTimer?.cancel();
     _overlayEntry?.remove();
     _clockTimer?.cancel();

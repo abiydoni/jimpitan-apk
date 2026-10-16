@@ -20,11 +20,13 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
+  final _nikController = TextEditingController();
 
   @override
   void dispose() {
     _codeController.dispose();
     _nameController.dispose();
+    _nikController.dispose();
     super.dispose();
   }
 
@@ -38,7 +40,7 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    EasyLoading.show(status: 'Memeriksa Kode...');
+    EasyLoading.show(status: 'Memeriksa...');
 
     try {
       final code = _codeController.text.trim().toUpperCase();
@@ -53,17 +55,51 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
       }
       
       final villageId = village['id'];
-      
+      final inputNik = _nikController.text.trim();
+      final inputName = _nameController.text.trim();
+
+      // KASUS 1: Jika user MEMASUKKAN NIK -> Otomatis sinkronisasi & verifikasi kemiripan nama
+      if (inputNik.isNotEmpty) {
+        EasyLoading.show(status: 'Mencocokkan NIK & Nama...');
+        final claimRes = await ApiService.claimAccount(
+          user.uid,
+          user.email ?? '',
+          inputNik,
+          villageId,
+          inputName,
+        );
+
+        if (claimRes['success'] == true) {
+          EasyLoading.dismiss();
+          if (mounted) {
+            CustomToast.show(
+              context,
+              claimRes['message'] ?? 'Akun berhasil disinkronkan langsung!',
+            );
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => AuthWrapper(user: user)),
+              (route) => false,
+            );
+          }
+          return;
+        } else {
+          // Gagal sinkronisasi karena NIK tidak cocok atau nama tidak sesuai
+          EasyLoading.dismiss();
+          _showError(claimRes['message'] ?? 'Gagal mencocokkan NIK dengan data warga.');
+          return;
+        }
+      }
+
+      // KASUS 2: Jika user HANYA memasukkan Nama (NIK kosong) -> Alur manual biasa (status: PENDING)
+      EasyLoading.show(status: 'Mendaftar...');
       final userData = {
         'uid': user.uid,
-        'name': _nameController.text.trim(),
+        'name': inputName,
         'email': user.email ?? '',
         'photoUrl': user.photoURL ?? '',
         'roles': ['WARGA'],
         'villageId': villageId,
         'status': 'PENDING',
-        // 'nik', 'noKK', and 'phoneNumber' are intentionally left empty/omitted
-        // as the user only needs to provide their Name and Village Code.
       };
 
       final success = await ApiService.updateProfile(user.uid, userData);
@@ -78,12 +114,12 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
         final admins = usersSnap.where((u) {
           if (u is Map) {
             final roles = u['roles'] as List<dynamic>? ?? [];
-            return roles.contains('ADMIN');
+            return roles.contains('ADMIN') || roles.contains('ADMIN_DESA');
           }
           return false;
         }).toList();
 
-        final userName = _nameController.text.trim();
+        final userName = inputName;
         final message = 'Halo Admin, warga baru bernama *$userName* baru saja mendaftar/bergabung ke lingkungan. Mohon cek pendaftarannya.';
 
         for (final admin in admins) {
@@ -120,7 +156,7 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
       EasyLoading.dismiss();
     }
   }
-  
+
   void _showError(String message) {
     CustomToast.show(context, message, isError: true);
   }
@@ -209,8 +245,26 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
                 icon: Icons.person_outline,
                 validatorMsg: 'Nama Lengkap wajib diisi',
               ),
+              const SizedBox(height: 20),
               
-              const SizedBox(height: 40),
+              _buildModernTextField(
+                controller: _nikController,
+                label: 'NIK (Opsional)',
+                hint: 'Masukkan 16 digit NIK jika sudah didaftarkan RT',
+                icon: Icons.badge_outlined,
+                validatorMsg: '',
+                keyboardType: TextInputType.number,
+                isRequired: false,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 4.0, top: 6.0),
+                child: Text(
+                  '💡 Jika NIK diisi dan cocok dengan data di RT, akun Anda akan otomatis terhubung langsung.',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.3),
+                ),
+              ),
+              
+              const SizedBox(height: 36),
               
               Container(
                 width: double.infinity,
@@ -251,11 +305,15 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
     required IconData icon,
     required String validatorMsg,
     TextInputType keyboardType = TextInputType.text,
+    bool isRequired = true,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      validator: (v) => v == null || v.isEmpty ? validatorMsg : null,
+      validator: (v) {
+        if (!isRequired) return null;
+        return v == null || v.isEmpty ? validatorMsg : null;
+      },
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(color: Colors.grey.shade700, fontSize: 14),

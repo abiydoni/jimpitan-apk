@@ -1688,7 +1688,63 @@ class _UsersPageState extends State<UsersPage> {
     );
   }
 
-  void _approveUser(String uid) async {
+  Future<void> _executeLinkUser(
+    Map<String, dynamic> pendingUser,
+    Map<String, dynamic> targetMember,
+  ) async {
+    EasyLoading.show(status: 'Mengaitkan data...');
+    try {
+      dynamic pendingUid;
+      if (pendingUser['familyMembers'] != null &&
+          (pendingUser['familyMembers'] as List).isNotEmpty) {
+        final firstM = pendingUser['familyMembers'][0];
+        pendingUid =
+            firstM['_docId'] ?? firstM['docId'] ?? firstM['uid'] ?? firstM['id'];
+      }
+      pendingUid ??=
+          pendingUser['docId'] ??
+          pendingUser['uid'] ??
+          pendingUser['id'] ??
+          pendingUser['_docId'];
+      final targetUid =
+          targetMember['docId'] ??
+          targetMember['_docId'] ??
+          targetMember['uid'] ??
+          targetMember['id'];
+      final villageId =
+          targetMember['villageId'] ??
+          pendingUser['villageId'] ??
+          _currentVillageId;
+
+      final success = await ApiService.linkUserAccount({
+        'pendingUid': pendingUid,
+        'targetUid': targetUid,
+        'villageId': villageId,
+      });
+
+      if (success) {
+        _loadData();
+        if (mounted) {
+          CustomToast.show(
+            context,
+            'Data berhasil dikaitkan! Akun terhubung tanpa membuat data double.',
+          );
+        }
+      } else {
+        if (mounted) {
+          CustomToast.show(context, 'Gagal mengaitkan data warga', isError: true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(context, 'Error: $e', isError: true);
+      }
+    } finally {
+      EasyLoading.dismiss();
+    }
+  }
+
+  void _executeApprove(String uid) async {
     EasyLoading.show(status: 'Menyetujui...');
     try {
       await ApiService.updateUserStatus(uid, {'status': 'ACTIVE'});
@@ -1701,6 +1757,178 @@ class _UsersPageState extends State<UsersPage> {
     } finally {
       EasyLoading.dismiss();
     }
+  }
+
+  void _approveUser(String docId, Map<String, dynamic> pendingUser) async {
+    // 1. Ekstrak nama pendaftar baru
+    String pendingName = (pendingUser['name'] ?? pendingUser['namaLengkap'] ?? '').toString().trim();
+    if (pendingName.isEmpty &&
+        pendingUser['familyMembers'] != null &&
+        (pendingUser['familyMembers'] as List).isNotEmpty) {
+      final firstM = pendingUser['familyMembers'][0];
+      pendingName = (firstM['name'] ?? firstM['namaLengkap'] ?? '').toString().trim();
+    }
+
+    // 2. Cari apakah sudah ada data warga aktif di desa ini yang namanya sama (pencarian cerdas)
+    Map<String, dynamic>? matchedMember;
+    final activeDocs = await _activeUsersFuture;
+    if (activeDocs != null && activeDocs.isNotEmpty && pendingName.isNotEmpty) {
+      final searchLower = pendingName.toLowerCase();
+      for (var doc in activeDocs) {
+        final data = doc as Map<String, dynamic>;
+        if (data.containsKey('familyMembers') && data['familyMembers'] is List) {
+          for (var member in data['familyMembers']) {
+            final mName = (member['name'] ?? member['namaLengkap'] ?? '').toString().trim().toLowerCase();
+            if (mName == searchLower) {
+              final m = Map<String, dynamic>.from(member);
+              m['docId'] = m['_docId'] ?? m['docId'] ?? m['uid'] ?? m['id'];
+              m['name'] = member['name'] ?? member['namaLengkap'];
+              m['noKK'] = member['noKK'] ?? data['noKK'];
+              m['nik'] = member['nik'];
+              m['alamat'] = member['alamat'] ?? data['alamat'] ?? data['address'];
+              m['villageId'] = data['villageId'];
+              matchedMember = m;
+              break;
+            }
+          }
+        } else {
+          final mName = (data['name'] ?? data['namaLengkap'] ?? '').toString().trim().toLowerCase();
+          if (mName == searchLower) {
+            final m = Map<String, dynamic>.from(data);
+            m['docId'] = m['docId'] ?? m['uid'] ?? m['id'] ?? m['_docId'];
+            m['name'] = data['name'] ?? data['namaLengkap'];
+            m['noKK'] = data['noKK'];
+            m['nik'] = data['nik'];
+            m['alamat'] = data['alamat'] ?? data['address'];
+            m['villageId'] = data['villageId'];
+            matchedMember = m;
+            break;
+          }
+        }
+        if (matchedMember != null) break;
+      }
+    }
+
+    if (!mounted) return;
+
+    // 3. Jika terdeteksi warga aktif dengan nama sama, tampilkan dialog peringatan & solusi kaitkan langsung
+    if (matchedMember != null) {
+      final String memberName = matchedMember['name']?.toString() ?? pendingName;
+      final String? memberKK = matchedMember['noKK']?.toString();
+      final String? memberNik = matchedMember['nik']?.toString();
+      final String? memberAlamat = matchedMember['alamat']?.toString();
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: const [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Terdeteksi Warga Serupa',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ditemukan data warga aktif bernama "$memberName" yang sudah terdaftar di desa ini:',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('👤 Nama: $memberName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    if (memberKK != null && memberKK.isNotEmpty && memberKK != '-')
+                      Text('🏠 No KK: $memberKK'),
+                    if (memberNik != null && memberNik.isNotEmpty && memberNik != '-')
+                      Text('🆔 NIK: $memberNik'),
+                    if (memberAlamat != null && memberAlamat.isNotEmpty && memberAlamat != '-')
+                      Text('📍 Alamat: $memberAlamat'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Jika disetujui langsung, data warga akan menjadi DOUBLE (satu lengkap, satu kosong).\n\nApakah Anda ingin langsung mengaitkan akun login ini ke data warga tersebut?',
+                style: TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _executeApprove(docId);
+              },
+              child: const Text('Bukan (Warga Baru)', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.link, size: 18),
+              label: const Text('Ya, Kaitkan Data'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _executeLinkUser(pendingUser, matchedMember!);
+              },
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // 4. Jika tidak ada kesamaan nama, tampilkan konfirmasi biasa sebelum menyetujui
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Setujui Warga Baru'),
+        content: Text('Yakin ingin menyetujui "$pendingName" sebagai warga baru di desa ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _executeApprove(docId);
+            },
+            child: const Text('Ya, Setujui'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -2396,7 +2624,7 @@ class _UsersPageState extends State<UsersPage> {
                                             Icons.check_circle,
                                             color: Colors.blue,
                                           ),
-                                          onPressed: () => _approveUser(docId),
+                                          onPressed: () => _approveUser(docId, user),
                                         ),
                                         const Text(
                                           'Setujui',

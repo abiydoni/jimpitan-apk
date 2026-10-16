@@ -262,7 +262,7 @@ class ApiService {
     return currentUser.displayName ?? currentUser.email?.split('@')[0] ?? 'Warga';
   }
 
-  static Future<Map<String, dynamic>?> claimAccount(
+  static Future<Map<String, dynamic>> claimAccount(
     String uid,
     String email,
     String nik,
@@ -272,24 +272,33 @@ class ApiService {
     try {
       final response = await _post(
         Uri.parse('$baseUrl/auth/claim-account'),
-        body: {
+        headers: await _getHeaders(),
+        body: json.encode({
           'uid': uid,
           'email': email,
           'nik': nik,
           'villageId': villageId,
           'name': name,
-        },
+        }),
       );
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        if (data['success'] == true) {
-          return data['data'];
-        }
+      final Map<String, dynamic> data = json.decode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        return {
+          'success': true,
+          'data': data['data'],
+          'message': data['message'] ?? 'Akun berhasil disinkronkan',
+        };
       }
-      return null;
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Gagal mencocokkan data akun',
+      };
     } catch (e) {
       debugPrint('Error claiming account: $e');
-      return null;
+      return {
+        'success': false,
+        'message': 'Terjadi kesalahan jaringan: $e',
+      };
     }
   }
 

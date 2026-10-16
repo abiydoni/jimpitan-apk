@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:jimpitan/main.dart';
 import 'package:flutter/services.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
+import 'package:jimpitan/utils/reviewer_bypass.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -335,6 +336,22 @@ class _LoginPageState extends State<LoginPage> {
                       color: Colors.green,
                       onTap: () => _signInWithGoogle('REGISTER_VILLAGE'),
                     ),
+
+                    // ========================================================
+                    // REVIEWER BYPASS (GOOGLE PLAY STORE REVIEW)
+                    // Mudah dihapus atau dinonaktifkan via kEnableReviewerBypass
+                    // ========================================================
+                    ReviewerBypassWidget(
+                      onSuccess: (user) {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => AuthWrapper(user: user),
+                          ),
+                          (route) => false,
+                        );
+                      },
+                    ),
+                    // ========================================================
                   ],
                 ),
               ),

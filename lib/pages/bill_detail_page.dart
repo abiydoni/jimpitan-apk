@@ -1173,52 +1173,31 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
                                 ),
                               ],
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Divider(
-                                height: 1,
-                                color: Color(0xFFE2E8F0),
+                            if (type != 'Harian') ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Divider(
+                                  height: 1,
+                                  color: Color(0xFFE2E8F0),
+                                ),
                               ),
-                            ),
-                            _buildModernInfoRow(
-                              'Total Diwajibkan',
-                              _formatCurrency(expectedTotal),
-                            ),
-                            if (type == 'Harian') ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    size: 13,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Dihitung s/d kemarin (hari ini & mendatang belum dihitung)',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade600,
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              _buildModernInfoRow(
+                                'Total Diwajibkan',
+                                _formatCurrency(expectedTotal),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Divider(
+                                  height: 1,
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              _buildModernInfoRow(
+                                'Total Terbayar',
+                                _formatCurrency(totalPaid),
+                                valueColor: Colors.green.shade600,
                               ),
                             ],
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Divider(
-                                height: 1,
-                                color: Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            _buildModernInfoRow(
-                              'Total Terbayar',
-                              _formatCurrency(totalPaid),
-                              valueColor: Colors.green.shade600,
-                            ),
                           ],
                         ),
                       ),

@@ -64,29 +64,30 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
       setState(() => _isLoading = true);
     }
     try {
-      _payments.clear();
-      _paymentHistory.clear();
-      _exemptedTariffIds.clear();
-      _myExemptions.clear();
+      final newPayments = <String, int>{};
+      final newPaymentHistory = <String, List<Map<String, dynamic>>>{};
+      final Set<String> newExemptedTariffIds = {};
+      final List<Map<String, dynamic>> newMyExemptions = [];
 
       // 1. Fetch active tariffs
       final allTariffs = await ApiService.getTariffs(widget.villageId);
-      _tariffs = List<Map<String, dynamic>>.from(allTariffs.where((t) => t['isActive'] == true));
+      final newTariffs = List<Map<String, dynamic>>.from(allTariffs.where((t) => t['isActive'] == true));
 
+      DateTime? newVillageStartDate = _freshVillageStartDate;
       final allVillages = await ApiService.getVillages();
       final myVillage = allVillages.firstWhere((v) => v['id'] == widget.villageId, orElse: () => {});
       final config = myVillage['config'] as Map<String, dynamic>? ?? {};
       if (config['startDate'] != null) {
         final sDate = config['startDate'];
         if (sDate is String) {
-          _freshVillageStartDate = DateTime.tryParse(sDate)?.toLocal();
+          newVillageStartDate = DateTime.tryParse(sDate)?.toLocal();
         } else if (sDate is int) {
-          _freshVillageStartDate = DateTime.fromMillisecondsSinceEpoch(sDate);
+          newVillageStartDate = DateTime.fromMillisecondsSinceEpoch(sDate);
         }
       }
 
       final allUsers = await ApiService.getUsers(widget.villageId);
-      _freshUserData = allUsers.firstWhere(
+      final newUserData = allUsers.firstWhere(
         (u) => (u['uid']?.toString() == widget.userData?['uid']?.toString()) || 
                (u['familyId']?.toString() == widget.familyId),
         orElse: () => widget.userData ?? {},
@@ -97,7 +98,7 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
 
       String code = widget.familyId;
       String noKk = widget.familyId;
-      final currentUserData = _freshUserData ?? widget.userData;
+      final currentUserData = newUserData ?? widget.userData;
       if (currentUserData != null) {
         code = currentUserData['uniqueCode']?.toString() ?? currentUserData['code']?.toString() ?? widget.familyId;
         noKk = currentUserData['noKK']?.toString() ?? widget.familyId;
@@ -107,13 +108,11 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
 
       final allExemptions = await ApiService.getExemptions(widget.villageId);
 
-      final Set<String> exempted = {};
-      final List<Map<String, dynamic>> myExs = [];
       for (var exData in allExemptions) {
         final exKkId = exData['kkId']?.toString() ?? '';
 
         if (exKkId == widget.familyId || exKkId == code || exKkId == noKk || (uid.isNotEmpty && exKkId == uid)) {
-          myExs.add(exData);
+          newMyExemptions.add(exData);
           DateTime? startTs = _parseDate(exData['startDate']);
           DateTime? endTs = _parseDate(exData['endDate']);
           
@@ -126,11 +125,9 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
           if (endTs != null && endTs.compareTo(now) < 0) {
             continue;
           } // sudah berakhir
-          exempted.add(exData['tariffId']?.toString() ?? '');
+          newExemptedTariffIds.add(exData['tariffId']?.toString() ?? '');
         }
       }
-      _exemptedTariffIds = exempted;
-      _myExemptions = myExs;
 
       // 3. Fetch payment history dari dues_journals (iuran bulanan/tahunan/dll)
       final allJournals = await ApiService.getDuesJournals(widget.villageId);
@@ -144,9 +141,9 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
         final tariffId = data['tariffId']?.toString() ?? '';
         final amount = (data['amount'] as num?)?.toInt() ?? 0;
         if (tariffId.isEmpty) continue;
-        _payments[tariffId] = (_payments[tariffId] ?? 0) + amount;
-        if (_paymentHistory[tariffId] == null) _paymentHistory[tariffId] = [];
-        _paymentHistory[tariffId]!.add(data);
+        newPayments[tariffId] = (newPayments[tariffId] ?? 0) + amount;
+        if (newPaymentHistory[tariffId] == null) newPaymentHistory[tariffId] = [];
+        newPaymentHistory[tariffId]!.add(data);
       }
 
       // 4. Juga baca jimpitan_history untuk tarif harian scan QR
@@ -168,22 +165,38 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
         }
 
         // Cari tariff yang bertipe Harian untuk desa ini
-        for (var tariff in _tariffs) {
+        for (var tariff in newTariffs) {
           final tType = tariff['type']?.toString() ?? '';
           if (tType == 'Harian') {
             final tariffId = tariff['id']?.toString() ?? '';
             final amount = (data['amount'] as num?)?.toInt() ?? 0;
-            _payments[tariffId] = (_payments[tariffId] ?? 0) + amount;
-            if (_paymentHistory[tariffId] == null) {
-              _paymentHistory[tariffId] = [];
+            newPayments[tariffId] = (newPayments[tariffId] ?? 0) + amount;
+            if (newPaymentHistory[tariffId] == null) {
+              newPaymentHistory[tariffId] = [];
             }
-            _paymentHistory[tariffId]!.add(data);
+            newPaymentHistory[tariffId]!.add(data);
           }
         }
       }
+
+      if (mounted) {
+        setState(() {
+          _tariffs = newTariffs;
+          _freshVillageStartDate = newVillageStartDate;
+          _freshUserData = newUserData;
+          _exemptedTariffIds = newExemptedTariffIds;
+          _myExemptions = newMyExemptions;
+          _payments
+            ..clear()
+            ..addAll(newPayments);
+          _paymentHistory
+            ..clear()
+            ..addAll(newPaymentHistory);
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint("Error loading bill details: $e");
-    } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -1360,7 +1373,7 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
                     ],
                   ),
                   Text(
-                    'Rp ${_formatCurrency(sisa)}',
+                    _formatCurrency(sisa),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,

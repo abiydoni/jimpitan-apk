@@ -1172,7 +1172,13 @@ class _DashboardPageState extends State<DashboardPage>
 
         if (type == 'Harian') {
           final startMidnight = DateTime(start.year, start.month, start.day);
-          final endOfMonthMidnight = DateTime(now.year, now.month + 1, 0);
+          // Hanya menghitung tanggal yang sudah lewat (kemarin dan sebelumnya), hari ini dan masa depan tidak dihitung
+          final yesterdayMidnight = DateTime(now.year, now.month, now.day)
+              .subtract(const Duration(days: 1));
+
+          if (startMidnight.isAfter(yesterdayMidnight)) {
+            return 0;
+          }
 
           Set<String> exemptedDates = {};
           for (var ex in myExemptions) {
@@ -1191,7 +1197,7 @@ class _DashboardPageState extends State<DashboardPage>
                 DateTime c = DateTime(s.year, s.month, s.day);
                 DateTime end = e != null
                     ? DateTime(e.year, e.month, e.day)
-                    : endOfMonthMidnight;
+                    : yesterdayMidnight;
                 while (!c.isAfter(end)) {
                   exemptedDates.add(
                     '${c.year}-${c.month.toString().padLeft(2, '0')}-${c.day.toString().padLeft(2, '0')}',
@@ -1204,7 +1210,7 @@ class _DashboardPageState extends State<DashboardPage>
 
           int validDays = 0;
           DateTime current = startMidnight;
-          while (!current.isAfter(endOfMonthMidnight)) {
+          while (!current.isAfter(yesterdayMidnight)) {
             final dStr =
                 '${current.year}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}';
             if (!exemptedDates.contains(dStr)) {

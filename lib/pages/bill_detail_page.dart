@@ -276,8 +276,13 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
 
     if (type == 'Harian') {
       final startMidnight = DateTime(start.year, start.month, start.day);
-      final endOfMonthMidnight = DateTime(now.year, now.month + 1, 0);
+      // Hanya menghitung tanggal yang sudah lewat (kemarin dan sebelumnya), hari ini dan tanggal mendatang tidak dihitung
+      final yesterdayMidnight = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
       
+      if (startMidnight.isAfter(yesterdayMidnight)) {
+        return 0;
+      }
+
       Set<String> exemptedDates = {};
       for (var ex in _myExemptions) {
         if (ex['tariffId'] == tariff['id']) {
@@ -285,7 +290,7 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
           DateTime? e = _parseDate(ex['endDate']);
           if (s != null) {
             DateTime c = DateTime(s.year, s.month, s.day);
-            DateTime end = e != null ? DateTime(e.year, e.month, e.day) : endOfMonthMidnight;
+            DateTime end = e != null ? DateTime(e.year, e.month, e.day) : yesterdayMidnight;
             while (!c.isAfter(end)) {
               exemptedDates.add(DateFormat('yyyy-MM-dd').format(c));
               c = c.add(const Duration(days: 1));
@@ -296,7 +301,7 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
 
       int validDays = 0;
       DateTime current = startMidnight;
-      while (!current.isAfter(endOfMonthMidnight)) {
+      while (!current.isAfter(yesterdayMidnight)) {
         if (!exemptedDates.contains(DateFormat('yyyy-MM-dd').format(current))) {
           validDays++;
         }
@@ -866,8 +871,13 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
       }
     } else if (type == 'Harian') {
       final startMidnight = DateTime(start.year, start.month, start.day);
-      final endOfMonthMidnight = DateTime(now.year, now.month + 1, 0);
+      // Hanya menghitung tanggal yang sudah lewat (kemarin dan sebelumnya), hari ini dan masa depan tidak dihitung
+      final yesterdayMidnight = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
       
+      if (startMidnight.isAfter(yesterdayMidnight)) {
+        return periods;
+      }
+
       Set<String> exemptedDates = {};
       for (var ex in _myExemptions) {
         if (ex['tariffId'] == tariff['id']) {
@@ -875,7 +885,7 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
           DateTime? e = _parseDate(ex['endDate']);
           if (s != null) {
             DateTime c = DateTime(s.year, s.month, s.day);
-            DateTime end = e != null ? DateTime(e.year, e.month, e.day) : endOfMonthMidnight;
+            DateTime end = e != null ? DateTime(e.year, e.month, e.day) : yesterdayMidnight;
             while (!c.isAfter(end)) {
               exemptedDates.add(DateFormat('yyyy-MM-dd').format(c));
               c = c.add(const Duration(days: 1));
@@ -886,7 +896,7 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
 
       List<DateTime> validDates = [];
       DateTime current = startMidnight;
-      while (!current.isAfter(endOfMonthMidnight)) {
+      while (!current.isAfter(yesterdayMidnight)) {
         if (!exemptedDates.contains(DateFormat('yyyy-MM-dd').format(current))) {
           validDates.add(current);
         }
@@ -1174,6 +1184,29 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
                               'Total Diwajibkan',
                               _formatCurrency(expectedTotal),
                             ),
+                            if (type == 'Harian') ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 13,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Dihitung s/d kemarin (hari ini & mendatang belum dihitung)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8.0),
                               child: Divider(

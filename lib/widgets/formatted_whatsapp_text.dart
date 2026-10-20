@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:jimpitan/utils/update_checker.dart';
 
 class FormattedWhatsAppText extends StatelessWidget {
   final String text;
@@ -62,10 +61,7 @@ class FormattedWhatsAppText extends StatelessWidget {
               ..onTap = () async {
                 final Uri uri = Uri.parse(launchUrlString);
                 
-                // Cegat URL APK agar di-download menggunakan in-app downloader
-                if (launchUrlString.toLowerCase().endsWith('.apk')) {
-                  await showDownloadApkDialog(context, launchUrlString);
-                } else if (await canLaunchUrl(uri)) {
+                if (await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
                 }
               },

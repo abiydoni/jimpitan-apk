@@ -28,6 +28,16 @@ const bool kEnableReviewerBypass = false;
 const String kDefaultReviewerEmail = 'appsbeedua@gmail.com';
 const String kDefaultReviewerPassword = 'Reviewer2026!';
 
+/// Menampilkan dialog modal login akun penguji (Play Store)
+void showReviewerLoginModal(BuildContext context, {required Function(User user) onSuccess}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => _ReviewerLoginSheet(onSuccess: onSuccess),
+  );
+}
+
 class ReviewerBypassWidget extends StatelessWidget {
   final Function(User user) onSuccess;
 
@@ -37,12 +47,7 @@ class ReviewerBypassWidget extends StatelessWidget {
   });
 
   void _showLoginDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _ReviewerLoginSheet(onSuccess: onSuccess),
-    );
+    showReviewerLoginModal(context, onSuccess: onSuccess);
   }
 
   @override
@@ -83,10 +88,9 @@ class _ReviewerLoginSheet extends StatefulWidget {
 }
 
 class _ReviewerLoginSheetState extends State<_ReviewerLoginSheet> {
-  final TextEditingController _emailController =
-      TextEditingController(text: kDefaultReviewerEmail);
-  final TextEditingController _passwordController =
-      TextEditingController(text: kDefaultReviewerPassword);
+  // Tidak terisi otomatis sesuai permintaan agar form kosong saat dibuka
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
 

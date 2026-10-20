@@ -1,108 +1,88 @@
-
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:in_app_update/in_app_update.dart';
 import '../utils/api_service.dart';
 import '../utils/app_theme.dart';
 
-/// Mendeteksi apakah perangkat Android menggunakan arsitektur 64-bit (HP Baru / ARM64)
-/// atau arsitektur 32-bit (HP Lama / ARMv7).
-Future<bool> is64BitDevice() async {
-  if (!Platform.isAndroid) return true;
-  try {
-    final androidInfo = await DeviceInfoPlugin().androidInfo;
-    final supported64 = androidInfo.supported64BitAbis;
-    if (supported64.isNotEmpty) return true;
+const String kPlayStoreUrl = 'https://play.google.com/store/apps/details?id=jimpitan.appsbee.my.id';
+const String kPlayStoreMarketUri = 'market://details?id=jimpitan.appsbee.my.id';
 
-    final supportedAbis = androidInfo.supportedAbis;
-    if (supportedAbis.any((abi) => abi.toLowerCase().contains('64') || abi.toLowerCase().contains('arm64'))) {
-      return true;
+/// Membuka aplikasi Google Play Store ke halaman aplikasi Jimpitan Digital
+Future<void> launchPlayStore() async {
+  final marketUri = Uri.parse(kPlayStoreMarketUri);
+  final webUri = Uri.parse(kPlayStoreUrl);
+
+  try {
+    if (await canLaunchUrl(marketUri)) {
+      await launchUrl(marketUri, mode: LaunchMode.externalApplication);
+      return;
     }
-    return false;
   } catch (e) {
-    debugPrint('Error detecting device ABI: $e');
-    return true; // Default to 64-bit jika gagal deteksi
+    debugPrint('Could not launch market uri: $e');
+  }
+
+  try {
+    if (await canLaunchUrl(webUri)) {
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    }
+  } catch (e) {
+    debugPrint('Could not launch web play store uri: $e');
   }
 }
 
-/// Cek versi app ke server dan tampilkan dialog update jika ada versi baru.
-/// Panggil di initState halaman utama setelah user login.
+
+/// Cek versi app ke Google Play Store & server backend.
+/// Menampilkan dialog konfirmasi kecil dan elegan jika ada pembaruan.
 Future<void> checkAndShowUpdateDialog(BuildContext context, {bool forceShow = false}) async {
   try {
-    // 1. Coba fitur resmi Play Store In-App Update
+    final info = await PackageInfo.fromPlatform();
+    final currentVersion = info.version; // contoh: "1.10.1"
+
+    // 1. Cek pembaruan via Google Play In-App Update API
+    bool hasPlayStoreUpdate = false;
+    AppUpdateInfo? playUpdateInfo;
     try {
       final updateInfo = await InAppUpdate.checkForUpdate();
       if (updateInfo.updateAvailability == UpdateAvailability.updateAvailable) {
-        if (updateInfo.immediateUpdateAllowed) {
-          await InAppUpdate.performImmediateUpdate();
-          return;
-        } else if (updateInfo.flexibleUpdateAllowed) {
-          await InAppUpdate.startFlexibleUpdate();
-          await InAppUpdate.completeFlexibleUpdate();
-          return;
-        }
+        hasPlayStoreUpdate = true;
+        playUpdateInfo = updateInfo;
       }
     } catch (e) {
-      // Akan gagal (throw error) jika APK diinstal dari luar Play Store (contoh: WhatsApp).
-      // Kita abaikan secara diam-diam dan lanjutkan ke sistem fallback.
-      debugPrint('Play Store Update skipped: $e');
+      debugPrint('Play Store In-App Update check skipped: $e');
     }
 
-    // 2. Fallback (Sistem Mandiri): Ambil versi app yang sedang berjalan
-    final info = await PackageInfo.fromPlatform();
-    final currentVersion = info.version; // misal: "1.9.2"
-
-    // Ambil info versi terbaru dari server backend
+    // 2. Cek metadata versi dari server backend
     final versionData = await ApiService.checkAppVersion();
-    if (versionData == null) return;
+    final latestVersion = versionData?['latestVersion']?.toString() ?? '';
+    final minVersion = versionData?['minVersion']?.toString() ?? '';
+    final forceUpdate = versionData?['forceUpdate'] == true;
+    final showNotification = versionData?['showNotification'] ?? versionData?['showUpdateNotification'] ?? true;
+    final releaseNotes = versionData?['releaseNotes']?.toString() ?? '';
 
-    final showNotification = versionData['showNotification'] ?? versionData['showUpdateNotification'] ?? true;
-    final latestVersion = versionData['latestVersion']?.toString() ?? '';
-    final minVersion = versionData['minVersion']?.toString() ?? '';
-    final forceUpdate = versionData['forceUpdate'] == true;
-    final updateUrl64 = versionData['updateUrl']?.toString() ?? '';
-    final updateUrlLegacy = versionData['updateUrlLegacy']?.toString() ?? '';
-    final releaseNotes = versionData['releaseNotes']?.toString() ?? '';
+    final hasBackendUpdate = latestVersion.isNotEmpty && _isNewerVersion(latestVersion, currentVersion);
+    final hasUpdate = hasPlayStoreUpdate || hasBackendUpdate;
 
-    // Deteksi arsitektur perangkat (HP Baru / HP Lama)
-    final is64 = await is64BitDevice();
-    String finalUpdateUrl = updateUrl64;
-    if (!is64 && updateUrlLegacy.trim().isNotEmpty) {
-      // Jika HP Lama (32-bit) dan link khusus HP lama tersedia di backend
-      finalUpdateUrl = updateUrlLegacy.trim();
-    } else if (finalUpdateUrl.isEmpty && updateUrlLegacy.trim().isNotEmpty) {
-      finalUpdateUrl = updateUrlLegacy.trim();
-    }
+    if (!hasUpdate && !forceShow) return;
 
-    // Default satu pintu ke Google Play Store resmi jika link kosong atau memakai ID lama
-    if (finalUpdateUrl.trim().isEmpty || finalUpdateUrl.contains('com.appsbeem.jimpitan')) {
-      finalUpdateUrl = 'https://play.google.com/store/apps/details?id=jimpitan.appsbee.my.id';
-    }
+    final isForced = forceUpdate || (minVersion.isNotEmpty && _isNewerVersion(minVersion, currentVersion));
 
-    // Bandingkan versi (simple string comparison untuk format X.Y.Z)
-    if (!_isNewerVersion(latestVersion, currentVersion) && !forceShow) return;
-
-    final isForced = forceUpdate || _isNewerVersion(minVersion, currentVersion);
-
-    // Jika di backend notifikasi update ditutup (showNotification = false) & bukan force update & bukan pemicu manual, jangan munculkan pop-up otomatis di dashboard
+    // Jika notifikasi ditutup di backend & bukan update wajib & bukan pemicu manual, lewati
     if (showNotification == false && !isForced && !forceShow) return;
 
     if (!context.mounted) return;
 
+    final displayLatestVersion = latestVersion.isNotEmpty ? latestVersion : 'Terbaru';
+
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => UpdateDialogWidget(
-        latestVersion: latestVersion,
+      barrierDismissible: !isForced,
+      builder: (ctx) => CompactUpdateDialog(
+        currentVersion: currentVersion,
+        latestVersion: displayLatestVersion,
         releaseNotes: releaseNotes,
         isForced: isForced,
-        updateUrl: finalUpdateUrl,
+        playUpdateInfo: playUpdateInfo,
       ),
     );
   } catch (e) {
@@ -110,229 +90,200 @@ Future<void> checkAndShowUpdateDialog(BuildContext context, {bool forceShow = fa
   }
 }
 
-class UpdateDialogWidget extends StatefulWidget {
+/// Dialog Konfirmasi Pembaruan: Dibuat Kecil, Elegan, dan Ramah Pengguna
+class CompactUpdateDialog extends StatelessWidget {
+  final String currentVersion;
   final String latestVersion;
   final String releaseNotes;
   final bool isForced;
-  final String updateUrl;
+  final AppUpdateInfo? playUpdateInfo;
 
-  const UpdateDialogWidget({
+  const CompactUpdateDialog({
     super.key,
+    required this.currentVersion,
     required this.latestVersion,
     required this.releaseNotes,
     required this.isForced,
-    required this.updateUrl,
+    this.playUpdateInfo,
   });
 
-  @override
-  State<UpdateDialogWidget> createState() => _UpdateDialogWidgetState();
-}
+  Future<void> _handleUpdate(BuildContext context) async {
+    Navigator.of(context).pop();
 
-class _UpdateDialogWidgetState extends State<UpdateDialogWidget> {
-  bool _isDownloading = false;
-  double _progress = 0;
-  String _status = '';
-  String? _savedApkPath;
-
-  Future<void> _handleUpdate() async {
-    final url = widget.updateUrl;
-    
-    // Jika URL adalah APK, lakukan in-app download
-    if (url.toLowerCase().endsWith('.apk')) {
-      await _downloadAndInstall(url);
-    } else {
-      // Satu pintu ke Google Play Store: utamakan protokol market:// agar langsung memicu app Play Store
-      final marketUri = Uri.tryParse('market://details?id=jimpitan.appsbee.my.id');
-      final fallbackUri = Uri.tryParse(url.isNotEmpty ? url : 'https://play.google.com/store/apps/details?id=jimpitan.appsbee.my.id');
-
-      if (marketUri != null && await canLaunchUrl(marketUri)) {
-        await launchUrl(marketUri, mode: LaunchMode.externalApplication);
-      } else if (fallbackUri != null && await canLaunchUrl(fallbackUri)) {
-        await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+    // 1. Jika In-App Update Play Store tersedia, gunakan alur resmi Google Play
+    if (playUpdateInfo != null && playUpdateInfo!.immediateUpdateAllowed) {
+      try {
+        await InAppUpdate.performImmediateUpdate();
+        return;
+      } catch (e) {
+        debugPrint('performImmediateUpdate error: $e');
       }
     }
-  }
 
-  Future<void> _openInstaller(String path) async {
-    final result = await OpenFilex.open(
-      path,
-      type: 'application/vnd.android.package-archive',
-    );
-    if (result.type != ResultType.done && mounted) {
-      setState(() {
-        _status = 'Gagal membuka installer. Mengalihkan ke browser...';
-      });
-      final uri = Uri.tryParse(widget.updateUrl);
-      if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    }
-  }
-
-  Future<void> _downloadAndInstall(String url) async {
-    setState(() {
-      _isDownloading = true;
-      _progress = 0;
-      _status = 'Menyiapkan unduhan...';
-    });
-
-    try {
-      final dir = await getTemporaryDirectory();
-      
-      final savePath = '${dir.path}/jimpitan_update_${widget.latestVersion}.apk';
-      final dio = Dio();
-
-      await dio.download(
-        url,
-        savePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            setState(() {
-              _progress = received / total;
-              _status = 'Mengunduh... ${( _progress * 100).toStringAsFixed(0)}%';
-            });
-          }
-        },
-      );
-
-      if (mounted) {
-        setState(() {
-          _progress = 1.0;
-          _status = 'Membuka installer...';
-          _savedApkPath = savePath;
-          _isDownloading = false;
-        });
-      }
-
-      await _openInstaller(savePath);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _status = 'Error Unduh: $e';
-          _isDownloading = false;
-        });
-      }
-      debugPrint('Download error: $e');
-    }
+    // 2. Fallback: Buka Google Play Store secara langsung
+    await launchPlayStore();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool canClose = !widget.isForced && !_isDownloading;
+    final canClose = !isForced;
 
     return PopScope(
       canPop: canClose,
-      child: AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.system_update_rounded, color: AppTheme.primaryColor),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text('Update Tersedia', style: TextStyle(fontSize: 18)),
-            ),
-            if (canClose)
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.grey),
-                onPressed: () => Navigator.of(context).pop(),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Versi ${widget.latestVersion} sudah tersedia.',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            if (widget.releaseNotes.isNotEmpty && !_isDownloading)
-              Text(widget.releaseNotes, style: TextStyle(color: Colors.grey.shade600)),
-              
-            if (widget.isForced && !_isDownloading) ...[
-              const SizedBox(height: 12),
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        elevation: 8,
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header Icon Kecil & Modern
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Update ini wajib dilakukan untuk melanjutkan.',
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 12),
-                      ),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryColor,
+                      AppTheme.secondaryColor,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-              ),
-            ],
-
-            // Download Progress UI
-            if (_isDownloading) ...[
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                value: _progress,
-                backgroundColor: Colors.grey.shade200,
-                color: AppTheme.primaryColor,
-                minHeight: 8,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  _status,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.bold),
+                child: const Icon(
+                  Icons.rocket_launch_rounded,
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
-            ] else if (_status.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  _status,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
+
+              // Judul & Badge Versi
+              const Text(
+                'Pembaruan Tersedia',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
                 ),
               ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'v$currentVersion ➔ v$latestVersion',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Pesan Singkat
+              Text(
+                isForced
+                    ? 'Versi terbaru wajib diperbarui untuk dapat melanjutkan penggunaan aplikasi.'
+                    : 'Versi baru sudah siap di Google Play Store. Perbarui sekarang untuk performa dan stabilitas terbaik.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isForced ? Colors.red.shade700 : const Color(0xFF64748B),
+                  height: 1.4,
+                ),
+              ),
+
+              // Catatan Rilis (jika ada)
+              if (releaseNotes.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Text(
+                    releaseNotes.trim(),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Tombol Tindakan (Tunda / Perbarui)
+              Row(
+                children: [
+                  if (canClose) ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF64748B),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        child: const Text(
+                          'Nanti',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _handleUpdate(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      child: const Text(
+                        'Perbarui',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
-          ],
+          ),
         ),
-        actions: [
-          if (canClose)
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Nanti'),
-            ),
-          if (!_isDownloading && _savedApkPath != null)
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () => _openInstaller(_savedApkPath!),
-              icon: const Icon(Icons.install_mobile, size: 18),
-              label: const Text('Pasang APK'),
-            )
-          else if (!_isDownloading)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: _handleUpdate,
-              child: const Text('Update Sekarang'),
-            ),
-        ],
       ),
     );
   }
@@ -353,126 +304,5 @@ bool _isNewerVersion(String a, String b) {
     return false; // sama
   } catch (_) {
     return false;
-  }
-}
-
-/// Tampilkan dialog unduhan APK khusus (tanpa cek versi) 
-/// Berguna untuk mengunduh APK dari link di chat atau tempat lain.
-Future<void> showDownloadApkDialog(BuildContext context, String apkUrl) async {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) => PopScope(
-      canPop: false,
-      child: DirectDownloadDialog(url: apkUrl),
-    ),
-  );
-}
-
-class DirectDownloadDialog extends StatefulWidget {
-  final String url;
-  const DirectDownloadDialog({super.key, required this.url});
-
-  @override
-  State<DirectDownloadDialog> createState() => _DirectDownloadDialogState();
-}
-
-class _DirectDownloadDialogState extends State<DirectDownloadDialog> {
-  double _progress = 0;
-  String _status = 'Menyiapkan unduhan...';
-  bool _isError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _startDownload();
-  }
-
-  Future<void> _startDownload() async {
-    try {
-      final dir = await getTemporaryDirectory();
-      final savePath = '${dir.path}/jimpitan_download_${DateTime.now().millisecondsSinceEpoch}.apk';
-      final dio = Dio();
-
-      await dio.download(
-        widget.url,
-        savePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            setState(() {
-              _progress = received / total;
-              _status = 'Mengunduh... ${( _progress * 100).toStringAsFixed(0)}%';
-            });
-          }
-        },
-      );
-
-      setState(() {
-        _status = 'Membuka installer...';
-      });
-
-      final result = await OpenFilex.open(savePath);
-      if (result.type != ResultType.done) {
-        setState(() {
-          _status = 'Gagal membuka APK.';
-          _isError = true;
-        });
-      } else {
-        if (mounted) Navigator.of(context).pop();
-      }
-    } catch (e) {
-      setState(() {
-        _status = 'Error Unduh: $e';
-        _isError = true;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(
-        children: [
-          Icon(Icons.download_rounded, color: AppTheme.primaryColor),
-          const SizedBox(width: 8),
-          const Text('Mengunduh APK', style: TextStyle(fontSize: 18)),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!_isError) ...[
-            LinearProgressIndicator(
-              value: _progress,
-              backgroundColor: Colors.grey.shade200,
-              color: AppTheme.primaryColor,
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            const SizedBox(height: 8),
-          ],
-          Center(
-            child: Text(
-              _status,
-              style: TextStyle(
-                fontSize: 13, 
-                color: _isError ? Colors.red : Colors.grey.shade700, 
-                fontWeight: FontWeight.bold
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        if (_isError)
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Tutup'),
-          ),
-      ],
-    );
   }
 }

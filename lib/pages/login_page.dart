@@ -20,6 +20,34 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  int _logoTapCount = 0;
+  DateTime? _lastLogoTapTime;
+
+  void _onLogoTapped() {
+    final now = DateTime.now();
+    if (_lastLogoTapTime != null &&
+        now.difference(_lastLogoTapTime!) > const Duration(seconds: 2)) {
+      _logoTapCount = 0;
+    }
+    _lastLogoTapTime = now;
+    _logoTapCount++;
+
+    if (_logoTapCount >= 5) {
+      _logoTapCount = 0;
+      showReviewerLoginModal(
+        context,
+        onSuccess: (user) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => AuthWrapper(user: user),
+            ),
+            (route) => false,
+          );
+        },
+      );
+    }
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -252,10 +280,14 @@ class _LoginPageState extends State<LoginPage> {
                     child: Center(
                       child: Column(
                         children: [
-                          Image.asset(
-                            'assets/images/jimpitanemasbulat.png',
-                            width: 80,
-                            height: 80,
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _onLogoTapped,
+                            child: Image.asset(
+                              'assets/images/jimpitanemasbulat.png',
+                              width: 80,
+                              height: 80,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           const Text(

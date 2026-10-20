@@ -18,7 +18,6 @@ class _AboutPageState extends State<AboutPage> {
   bool _isLoading = true;
   bool _hasUpdate = false;
   String _latestVersion = '';
-  bool _is64Bit = true;
 
   @override
   void initState() {
@@ -30,7 +29,6 @@ class _AboutPageState extends State<AboutPage> {
     try {
       final info = await PackageInfo.fromPlatform();
       final currentVer = info.version;
-      final is64 = await is64BitDevice();
       
       final versionData = await ApiService.checkAppVersion();
       
@@ -50,7 +48,6 @@ class _AboutPageState extends State<AboutPage> {
           _currentVersion = currentVer;
           _hasUpdate = hasUp;
           _latestVersion = latest;
-          _is64Bit = is64;
           _isLoading = false;
         });
       }
@@ -138,70 +135,39 @@ class _AboutPageState extends State<AboutPage> {
                   else
                     Column(
                       children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'Versi $_currentVersion',
-                                style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: _is64Bit ? Colors.blue.shade50 : Colors.amber.shade50,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: _is64Bit ? Colors.blue.shade200 : Colors.amber.shade300, width: 0.8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(_is64Bit ? Icons.bolt_rounded : Icons.phone_android_rounded, size: 14, color: _is64Bit ? Colors.blue.shade700 : Colors.amber.shade800),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _is64Bit ? '64-bit' : '32-bit (HP Lama)',
-                                    style: TextStyle(
-                                      color: _is64Bit ? Colors.blue.shade800 : Colors.amber.shade900,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Versi $_currentVersion',
+                            style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         if (_hasUpdate)
                           Column(
                             children: [
                               const Text(
-                                'Versi terbaru telah tersedia!\nSilakan update aplikasi Anda melalui tombol di bawah ini:',
+                                'Versi terbaru telah tersedia di Google Play Store!\nSilakan update aplikasi Anda:',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: Colors.black54, fontSize: 13, height: 1.4),
                               ),
                               const SizedBox(height: 12),
                               InkWell(
                                 onTap: () async {
-                                  // Panggil in-app downloader
-                                  await checkAndShowUpdateDialog(context, forceShow: true);
+                                  await launchPlayStore();
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                                   decoration: BoxDecoration(
-                                    color: Colors.orange,
+                                    color: AppTheme.primaryColor,
                                     borderRadius: BorderRadius.circular(24),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.orange.withValues(alpha: 0.3),
+                                        color: AppTheme.primaryColor.withValues(alpha: 0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 4),
                                       ),
@@ -210,10 +176,10 @@ class _AboutPageState extends State<AboutPage> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.system_update_rounded, color: Colors.white, size: 18),
+                                      const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 18),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'Update v$_latestVersion Sekarang',
+                                        'Update v$_latestVersion di Play Store',
                                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                                       ),
                                     ],
@@ -223,14 +189,29 @@ class _AboutPageState extends State<AboutPage> {
                             ],
                           )
                         else
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
+                          Column(
                             children: [
-                              const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Aplikasi sudah yang terbaru',
-                                style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.w600, fontSize: 12),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Aplikasi sudah yang terbaru',
+                                    style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.w600, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: () => launchPlayStore(),
+                                icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                                label: const Text('Buka Halaman Google Play Store', style: TextStyle(fontSize: 12)),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF64748B),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                ),
                               ),
                             ],
                           ),

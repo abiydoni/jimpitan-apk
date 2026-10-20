@@ -316,9 +316,13 @@ class HelpPage extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 8.0),
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            final Uri url = Uri.parse('https://play.google.com/store/apps/details?id=com.appsbeem.jimpitan');
-                            if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                              // CustomToast.show is not available easily without context if we are in builder, wait we have context from builder!
+                            final Uri marketUri = Uri.parse('market://details?id=jimpitan.appsbee.my.id');
+                            final Uri webUrl = Uri.parse('https://play.google.com/store/apps/details?id=jimpitan.appsbee.my.id');
+                            if (await canLaunchUrl(marketUri)) {
+                              await launchUrl(marketUri, mode: LaunchMode.externalApplication);
+                            } else if (await canLaunchUrl(webUrl)) {
+                              await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+                            } else {
                               debugPrint('Could not launch play store');
                             }
                           },

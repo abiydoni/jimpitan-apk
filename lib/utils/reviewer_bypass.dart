@@ -22,7 +22,7 @@ import 'package:jimpitan/utils/custom_toast.dart';
 /// ============================================================================
 
 /// Toggle master untuk mengaktifkan / mematikan tombol login peninjau.
-const bool kEnableReviewerBypass = true;
+const bool kEnableReviewerBypass = false;
 
 /// Default kredensial yang didaftarkan di Google Play Console > Akses Aplikasi:
 const String kDefaultReviewerEmail = 'appsbeedua@gmail.com';

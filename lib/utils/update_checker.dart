@@ -80,6 +80,11 @@ Future<void> checkAndShowUpdateDialog(BuildContext context, {bool forceShow = fa
       finalUpdateUrl = updateUrlLegacy.trim();
     }
 
+    // Default satu pintu ke Google Play Store resmi jika link kosong atau memakai ID lama
+    if (finalUpdateUrl.trim().isEmpty || finalUpdateUrl.contains('com.appsbeem.jimpitan')) {
+      finalUpdateUrl = 'https://play.google.com/store/apps/details?id=jimpitan.appsbee.my.id';
+    }
+
     // Bandingkan versi (simple string comparison untuk format X.Y.Z)
     if (!_isNewerVersion(latestVersion, currentVersion) && !forceShow) return;
 
@@ -136,10 +141,14 @@ class _UpdateDialogWidgetState extends State<UpdateDialogWidget> {
     if (url.toLowerCase().endsWith('.apk')) {
       await _downloadAndInstall(url);
     } else {
-      // Jika Play Store atau URL lain, buka di browser
-      final uri = Uri.tryParse(url);
-      if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      // Satu pintu ke Google Play Store: utamakan protokol market:// agar langsung memicu app Play Store
+      final marketUri = Uri.tryParse('market://details?id=jimpitan.appsbee.my.id');
+      final fallbackUri = Uri.tryParse(url.isNotEmpty ? url : 'https://play.google.com/store/apps/details?id=jimpitan.appsbee.my.id');
+
+      if (marketUri != null && await canLaunchUrl(marketUri)) {
+        await launchUrl(marketUri, mode: LaunchMode.externalApplication);
+      } else if (fallbackUri != null && await canLaunchUrl(fallbackUri)) {
+        await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
       }
     }
   }

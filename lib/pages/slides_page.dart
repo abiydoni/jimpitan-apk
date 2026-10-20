@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:jimpitan/utils/image_compressor.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:jimpitan/utils/custom_toast.dart';
 
 class SlidesPage extends StatefulWidget {
@@ -32,6 +33,9 @@ class _SlidesPageState extends State<SlidesPage> {
   final _statusController = TextEditingController();
   String _slideType = 'INFO';
   String? _imageBase64;
+  Uint8List? _rawImageBytes;
+  double _imageAlignmentX = 0.0;
+  double _imageAlignmentY = 0.0;
   String _textColor = '#FFFFFF';
 
   bool get _canCreate => widget.permissions['create'] ?? false;
@@ -98,6 +102,41 @@ class _SlidesPageState extends State<SlidesPage> {
     super.dispose();
   }
 
+  Widget _buildPositionChip(
+    String label,
+    double alignY,
+    void Function(void Function()) setModalState,
+    Color themeColor,
+  ) {
+    final bool isSelected = (_imageAlignmentY - alignY).abs() < 0.25;
+    return InkWell(
+      onTap: () {
+        setModalState(() {
+          _imageAlignmentY = alignY;
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? themeColor : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? themeColor : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showSlideForm([Map<String, dynamic>? doc]) {
     if (doc != null) {
       final data = doc;
@@ -108,6 +147,17 @@ class _SlidesPageState extends State<SlidesPage> {
       _statusController.text = data['status'] ?? '';
       _imageBase64 = data['imageBase64'];
       _textColor = data['textColor'] ?? '#FFFFFF';
+      _imageAlignmentX = 0.0;
+      _imageAlignmentY = 0.0;
+      if (_imageBase64 != null && _imageBase64!.isNotEmpty) {
+        try {
+          _rawImageBytes = base64Decode(_imageBase64!);
+        } catch (_) {
+          _rawImageBytes = null;
+        }
+      } else {
+        _rawImageBytes = null;
+      }
     } else {
       _titleController.clear();
       _subtitleController.clear();
@@ -115,6 +165,9 @@ class _SlidesPageState extends State<SlidesPage> {
       _valueController.clear();
       _statusController.clear();
       _imageBase64 = null;
+      _rawImageBytes = null;
+      _imageAlignmentX = 0.0;
+      _imageAlignmentY = 0.0;
       _textColor = '#FFFFFF';
     }
 
@@ -251,77 +304,178 @@ class _SlidesPageState extends State<SlidesPage> {
                                     style: TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                     const SizedBox(height: 8),
-                                    GestureDetector(
-                                      onTap: () async {
-                                        final picker = ImagePicker();
-                                        final pickedFile = await picker.pickImage(
-                                          source: ImageSource.gallery,
-                                          maxWidth: 800,
-                                          maxHeight: 800,
-                                        );
-
-                                        if (pickedFile != null) {
-                                          EasyLoading.show(status: 'Memproses gambar...');
-                                          await Future.delayed(const Duration(milliseconds: 50));
-                                          try {
-                                            final bytes = await pickedFile.readAsBytes();
-                                            final base64String = await ImageCompressor.compressImage(bytes, width: 400, quality: 50);
-                                            
-                                            if (base64String != null) {
-                                              setModalState(() {
-                                                _imageBase64 = base64String;
-                                              });
-                                            }
-                                          } catch (e) {
-                                            debugPrint('Error reading image: $e');
-                                            if (!context.mounted) return;
-                                            CustomToast.show(context, 'Gagal memproses gambar', isError: true);
-                                          } finally {
-                                            EasyLoading.dismiss();
-                                          }
-                                        }
-                                      },
-                                      child: Container(
+                                    if (_rawImageBytes != null) ...[
+                                      Container(
                                         height: 150,
+                                        width: double.infinity,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: Colors.black,
+                                          borderRadius: BorderRadius.circular(14),
                                           border: Border.all(color: Colors.grey.shade300),
                                         ),
-                                        child: _imageBase64 != null && _imageBase64!.isNotEmpty
-                                            ? ClipRRect(
-                                                borderRadius: BorderRadius.circular(12),
-                                                child: Image.memory(
-                                                  base64Decode(_imageBase64!),
-                                                  fit: BoxFit.cover,
-                                                  width: double.infinity,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(14),
+                                          child: Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              GestureDetector(
+                                                onPanUpdate: (details) {
+                                                  setModalState(() {
+                                                    _imageAlignmentY = (_imageAlignmentY - (details.delta.dy / 50)).clamp(-1.0, 1.0);
+                                                    _imageAlignmentX = (_imageAlignmentX - (details.delta.dx / 60)).clamp(-1.0, 1.0);
+                                                  });
+                                                },
+                                                child: MouseRegion(
+                                                  cursor: SystemMouseCursors.grab,
+                                                  child: Image.memory(
+                                                    _rawImageBytes!,
+                                                    fit: BoxFit.cover,
+                                                    alignment: Alignment(_imageAlignmentX, _imageAlignmentY),
+                                                    width: double.infinity,
+                                                    height: double.infinity,
+                                                  ),
                                                 ),
-                                              )
-                                            : const Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey),
-                                                  SizedBox(height: 8),
-                                                  Text('Ketuk untuk upload gambar', style: TextStyle(color: Colors.grey)),
-                                                ],
                                               ),
-                                      ),
-                                    ),
-                                    if (_imageBase64 != null)
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: TextButton(
-                                          onPressed: () {
-                                            setModalState(() {
-                                              _imageBase64 = null;
-                                            });
-                                          },
-                                          child: const Text('Hapus Gambar', style: TextStyle(color: Colors.red)),
+                                              Positioned(
+                                                top: 8,
+                                                left: 8,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.black.withValues(alpha: 0.65),
+                                                    borderRadius: BorderRadius.circular(20),
+                                                  ),
+                                                  child: const Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(Icons.open_with, color: Colors.white, size: 13),
+                                                      SizedBox(width: 5),
+                                                      Text(
+                                                        'Geser gambar untuk atur posisi',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Warna Teks',
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            'Posisi:',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          _buildPositionChip('Atas', -1.0, setModalState, themeColor),
+                                          const SizedBox(width: 6),
+                                          _buildPositionChip('Tengah', 0.0, setModalState, themeColor),
+                                          const SizedBox(width: 6),
+                                          _buildPositionChip('Bawah', 1.0, setModalState, themeColor),
+                                          const Spacer(),
+                                          TextButton.icon(
+                                            onPressed: () async {
+                                              final picker = ImagePicker();
+                                              final pickedFile = await picker.pickImage(
+                                                source: ImageSource.gallery,
+                                                maxWidth: 1600,
+                                                maxHeight: 1600,
+                                              );
+                                              if (pickedFile != null) {
+                                                final bytes = await pickedFile.readAsBytes();
+                                                setModalState(() {
+                                                  _rawImageBytes = bytes;
+                                                  _imageBase64 = base64Encode(bytes);
+                                                  _imageAlignmentX = 0.0;
+                                                  _imageAlignmentY = 0.0;
+                                                });
+                                              }
+                                            },
+                                            icon: const Icon(Icons.photo_library_outlined, size: 15),
+                                            label: const Text('Ganti', style: TextStyle(fontSize: 12)),
+                                            style: TextButton.styleFrom(
+                                              visualDensity: VisualDensity.compact,
+                                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              setModalState(() {
+                                                _rawImageBytes = null;
+                                                _imageBase64 = null;
+                                                _imageAlignmentX = 0.0;
+                                                _imageAlignmentY = 0.0;
+                                              });
+                                            },
+                                            style: TextButton.styleFrom(
+                                                visualDensity: VisualDensity.compact,
+                                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                              ),
+                                              child: const Text('Hapus', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                          ),
+                                        ],
+                                      ),
+                                    ] else ...[
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final picker = ImagePicker();
+                                          final pickedFile = await picker.pickImage(
+                                            source: ImageSource.gallery,
+                                            maxWidth: 1600,
+                                            maxHeight: 1600,
+                                          );
+
+                                          if (pickedFile != null) {
+                                            EasyLoading.show(status: 'Memuat gambar...');
+                                            try {
+                                              final bytes = await pickedFile.readAsBytes();
+                                              setModalState(() {
+                                                _rawImageBytes = bytes;
+                                                _imageBase64 = base64Encode(bytes);
+                                                _imageAlignmentX = 0.0;
+                                                _imageAlignmentY = 0.0;
+                                              });
+                                            } catch (e) {
+                                              debugPrint('Error reading image: $e');
+                                              if (!context.mounted) return;
+                                              CustomToast.show(context, 'Gagal memproses gambar', isError: true);
+                                            } finally {
+                                              EasyLoading.dismiss();
+                                            }
+                                          }
+                                        },
+                                        child: Container(
+                                          height: 150,
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: Colors.grey.shade300),
+                                          ),
+                                          child: const Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey),
+                                              SizedBox(height: 8),
+                                              Text('Ketuk untuk upload gambar', style: TextStyle(color: Colors.grey)),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'Warna Teks',
                                     style: TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 8),
@@ -374,37 +528,63 @@ class _SlidesPageState extends State<SlidesPage> {
                                           ),
                                           onPressed: () async {
                                             if (_formKey.currentState!.validate()) {
-                                              final data = {
-                                                'title': _titleController.text,
-                                                'subtitle': _subtitleController.text,
-                                                'type': _slideType,
-                                                'imageBase64': _imageBase64,
-                                                'textColor': _textColor,
-                                                'value': _slideType == 'BILL' ? _valueController.text : null,
-                                                'status': _slideType == 'BILL' ? _statusController.text : null,
-                                                'villageId': widget.villageId,
-                                              };
+                                              EasyLoading.show(status: 'Menyimpan slide...');
+                                              try {
+                                                String? finalBase64 = _imageBase64;
+                                                if (_rawImageBytes != null) {
+                                                  final cropped = await ImageCompressor.cropAndCompressImage(
+                                                    _rawImageBytes!,
+                                                    alignmentX: _imageAlignmentX,
+                                                    alignmentY: _imageAlignmentY,
+                                                    targetAspectRatio: 2.4,
+                                                    targetWidth: 600,
+                                                    quality: 65,
+                                                  );
+                                                  if (cropped != null) {
+                                                    finalBase64 = cropped;
+                                                  }
+                                                }
 
-                                              if (doc == null) {
-                                                await ApiService.createSlide(data);
-                                                _loadData();
-                                                
-                                                if (!context.mounted) return;
-                                                CustomToast.show(context, 'Slide berhasil ditambahkan!');
-                                                
-                                                _titleController.clear();
-                                                _subtitleController.clear();
-                                                _valueController.clear();
-                                                _statusController.clear();
-                                                setModalState(() {
-                                                  _imageBase64 = null;
-                                                });
-                                              } else {
-                                                await ApiService.updateSlide(doc['id'], data);
-                                                _loadData();
-                                                if (!context.mounted) return;
-                              if (mounted) CustomToast.show(context, 'Data berhasil disimpan');
-                                                Navigator.pop(context);
+                                                final data = {
+                                                  'title': _titleController.text.trim(),
+                                                  'subtitle': _subtitleController.text.trim(),
+                                                  'type': _slideType,
+                                                  'imageBase64': finalBase64,
+                                                  'textColor': _textColor,
+                                                  'value': _slideType == 'BILL' ? _valueController.text : null,
+                                                  'status': _slideType == 'BILL' ? _statusController.text : null,
+                                                  'villageId': widget.villageId,
+                                                };
+
+                                                if (doc == null) {
+                                                  await ApiService.createSlide(data);
+                                                  _loadData();
+                                                  
+                                                  if (!context.mounted) return;
+                                                  CustomToast.show(context, 'Slide berhasil ditambahkan!');
+                                                  
+                                                  _titleController.clear();
+                                                  _subtitleController.clear();
+                                                  _valueController.clear();
+                                                  _statusController.clear();
+                                                  setModalState(() {
+                                                    _rawImageBytes = null;
+                                                    _imageBase64 = null;
+                                                    _imageAlignmentX = 0.0;
+                                                    _imageAlignmentY = 0.0;
+                                                  });
+                                                } else {
+                                                  await ApiService.updateSlide(doc['id'], data);
+                                                  _loadData();
+                                                  if (!context.mounted) return;
+                                                  CustomToast.show(context, 'Data berhasil disimpan');
+                                                  Navigator.pop(context);
+                                                }
+                                              } catch (e) {
+                                                debugPrint('Error saving slide: $e');
+                                                if (mounted) CustomToast.show(context, 'Gagal menyimpan slide: $e', isError: true);
+                                              } finally {
+                                                EasyLoading.dismiss();
                                               }
                                             }
                                           },

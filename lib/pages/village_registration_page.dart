@@ -55,7 +55,62 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
   }
 
   Future<void> _registerVillage() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      CustomToast.show(
+        context,
+        'Mohon lengkapi semua data wajib yang disediakan.',
+        isError: true,
+      );
+      return;
+    }
+
+    final villageName = _villageNameController.text.trim();
+    final address = _addressController.text.trim();
+    final rtRw = _rtRwController.text.trim();
+    final noKK = _noKKController.text.trim();
+    final nik = _nikController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (villageName.isEmpty ||
+        address.isEmpty ||
+        rtRw.isEmpty ||
+        noKK.isEmpty ||
+        nik.isEmpty ||
+        phone.isEmpty) {
+      CustomToast.show(
+        context,
+        'Seluruh data wajib diisi, tidak boleh ada yang kosong.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (noKK.length < 16) {
+      CustomToast.show(
+        context,
+        'Nomor Kartu Keluarga (KK) harus 16 digit angka.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (nik.length < 16) {
+      CustomToast.show(
+        context,
+        'NIK Admin harus 16 digit angka.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (phone.length < 10) {
+      CustomToast.show(
+        context,
+        'Nomor WhatsApp minimal 10 digit.',
+        isError: true,
+      );
+      return;
+    }
     
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -68,18 +123,18 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
         'name': user.displayName,
         'email': user.email,
         'photoUrl': user.photoURL,
-        'noKK': _noKKController.text.trim(),
-        'nik': _nikController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'villageName': _villageNameController.text.trim(),
-        'address': _addressController.text.trim(),
-        'rtRw': _rtRwController.text.trim(),
+        'noKK': noKK,
+        'nik': nik,
+        'phone': phone,
+        'villageName': villageName,
+        'address': address,
+        'rtRw': rtRw,
       };
 
       final success = await ApiService.registerVillage(data);
 
       if (!success) {
-        throw Exception('Gagal mendaftarkan desa');
+        throw Exception('Gagal mendaftarkan desa. Pastikan semua data terisi dengan benar.');
       }
 
       if (mounted) {
@@ -287,8 +342,15 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
               TextFormField(
                 controller: _noKKController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Nomor Kartu Keluarga (No KK) wajib diisi' : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(16),
+                ],
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Nomor Kartu Keluarga (No KK) wajib diisi';
+                  if (v.trim().length < 16) return 'Nomor KK harus 16 digit angka';
+                  return null;
+                },
                 decoration: InputDecoration(
                   labelText: 'Nomor Kartu Keluarga Admin (Wajib)',
                   hintText: 'Contoh: 3270xxxxxxxxxxxx',
@@ -307,8 +369,15 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
               TextFormField(
                 controller: _nikController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'NIK Admin wajib diisi' : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(16),
+                ],
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'NIK Admin / Ketua wajib diisi';
+                  if (v.trim().length < 16) return 'NIK harus 16 digit angka';
+                  return null;
+                },
                 decoration: InputDecoration(
                   labelText: 'NIK Admin / Ketua (Wajib)',
                   hintText: 'Contoh: 3270xxxxxxxxxxxx',
@@ -327,8 +396,15 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Nomor HP/WhatsApp wajib diisi' : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(15),
+                ],
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Nomor HP/WhatsApp wajib diisi';
+                  if (v.trim().length < 10) return 'Nomor WhatsApp minimal 10 digit';
+                  return null;
+                },
                 decoration: InputDecoration(
                   labelText: 'Nomor HP / WhatsApp (Wajib)',
                   hintText: 'Contoh: 081234567890',

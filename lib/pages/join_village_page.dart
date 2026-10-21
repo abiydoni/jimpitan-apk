@@ -75,6 +75,28 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
       final inputNik = _nikController.text.trim();
       final inputName = _nameController.text.trim();
 
+      // Cek apakah akun ini sudah aktif di desa sebelumnya
+      try {
+        final currentProfile = await ApiService.getUser(user.uid);
+        if (currentProfile != null) {
+          final currVillageId = currentProfile['villageId']?.toString();
+          final currStatus = currentProfile['status']?.toString();
+          if (currVillageId != null && 
+              currVillageId.isNotEmpty && 
+              currVillageId != '-' && 
+              currStatus == 'ACTIVE' && 
+              currVillageId != villageId) {
+            EasyLoading.dismiss();
+            final currVillageData = await ApiService.getVillage(currVillageId);
+            final currVillageName = currVillageData?['name'] ?? 'desa sebelumnya';
+            _showAlreadyJoinedDialog(
+              'Akun Google ini sudah terdaftar sebagai warga aktif di "$currVillageName".\n\nSatu akun hanya dapat terdaftar di satu desa. Jika ingin berpindah ke desa ini, silakan hubungi pengurus/admin desa sebelumnya terlebih dahulu.',
+            );
+            return;
+          }
+        }
+      } catch (_) {}
+
       // KASUS 1: Jika user MEMASUKKAN NIK -> Otomatis sinkronisasi & verifikasi kemiripan nama
       if (inputNik.isNotEmpty) {
         EasyLoading.show(status: 'Mencocokkan NIK & Nama...');
@@ -102,7 +124,12 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
         } else {
           // Gagal sinkronisasi karena NIK tidak cocok atau nama tidak sesuai
           EasyLoading.dismiss();
-          _showError(claimRes['message'] ?? 'Gagal mencocokkan NIK dengan data warga.');
+          final msg = claimRes['message'] ?? 'Gagal mencocokkan NIK dengan data warga.';
+          if (msg.contains('sudah terdaftar') || msg.contains('desa lain') || msg.contains('desa sebelumnya')) {
+            _showAlreadyJoinedDialog(msg);
+          } else {
+            _showError(msg);
+          }
           return;
         }
       }
@@ -167,11 +194,77 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
       }
     } catch (e) {
       if (mounted) {
-        _showError('Terjadi kesalahan: ${e.toString()}');
+        final errorMsg = e.toString().replaceAll('Exception: ', '');
+        if (errorMsg.contains('sudah terdaftar') || errorMsg.contains('desa lain') || errorMsg.contains('desa sebelumnya')) {
+          _showAlreadyJoinedDialog(errorMsg);
+        } else {
+          _showError('Terjadi kesalahan: $errorMsg');
+        }
       }
     } finally {
       EasyLoading.dismiss();
     }
+  }
+
+  void _showAlreadyJoinedDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Sudah Terdaftar',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.5,
+            color: Color(0xFF475569),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Mengerti',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showError(String message) {

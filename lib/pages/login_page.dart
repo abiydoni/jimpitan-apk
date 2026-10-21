@@ -32,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
     _lastLogoTapTime = now;
     _logoTapCount++;
 
-    if (_logoTapCount >= 3) {
+    if (_logoTapCount >= 5) {
       _logoTapCount = 0;
       showReviewerLoginModal(
         context,

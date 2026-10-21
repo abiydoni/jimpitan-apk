@@ -197,6 +197,20 @@ class _LoginPageState extends State<LoginPage> {
             userData != null &&
             status != 'INCOMPLETE') {
           // User mencoba daftar desa tapi sudah punya akun
+          EasyLoading.dismiss();
+
+          if (mounted) {
+            final villageName = userData['village']?['name'] ?? userData['villageId'] ?? '';
+            final villageInfo = villageName.toString().isNotEmpty ? ' ($villageName)' : '';
+
+            CustomToast.show(
+              context,
+              'Anda sudah terdaftar di desa sebelumnya$villageInfo. Silakan masuk melalui menu Masuk ke Aplikasi.',
+              isError: true,
+            );
+          }
+
+          // Logout setelah notifikasi ditampilkan agar status login Firebase bersih kembali
           try {
             await GoogleSignIn(
               clientId: kIsWeb
@@ -207,56 +221,7 @@ class _LoginPageState extends State<LoginPage> {
           try {
             await FirebaseAuth.instance.signOut();
           } catch (_) {}
-          EasyLoading.dismiss();
-          if (mounted) {
-            final villageName = userData['village']?['name'] ?? userData['villageId'] ?? '';
-            final villageInfo = villageName.toString().isNotEmpty ? ' di desa "$villageName"' : '';
 
-            await showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (ctx) => AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                title: const Row(
-                  children: [
-                    Icon(Icons.info_outline_rounded, color: Colors.orange, size: 28),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Sudah Terdaftar di Desa',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                content: Text(
-                  'Akun Google Anda (${user.email ?? ''}) sudah terdaftar$villageInfo.\n\n'
-                  'Anda tidak dapat mendaftarkan desa baru dengan akun ini karena satu akun hanya bisa terdaftar di satu desa.\n\n'
-                  'Silakan masuk melalui menu "Masuk ke Aplikasi atau Gabung Desa (Warga Baru)".',
-                  style: const TextStyle(fontSize: 14, height: 1.5, color: Color(0xFF334155)),
-                ),
-                actions: [
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    ),
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            );
-
-            if (!mounted) return;
-            CustomToast.show(
-              context,
-              'Anda sudah terdaftar di desa sebelumnya. Silakan pilih menu Masuk ke Aplikasi.',
-              isError: true,
-            );
-          }
           return; // Hentikan proses, tetap di halaman login
         }
 

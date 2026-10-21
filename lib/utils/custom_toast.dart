@@ -4,7 +4,7 @@ enum ToastType { success, info, warning, error }
 
 class CustomToast {
   static void show(BuildContext context, String message, {bool isError = false, ToastType? type}) {
-    final overlay = Overlay.of(context);
+    final overlay = Overlay.maybeOf(context, rootOverlay: true) ?? Overlay.of(context);
     late OverlayEntry overlayEntry;
     
     ToastType currentType = type ?? (isError ? ToastType.error : ToastType.success);

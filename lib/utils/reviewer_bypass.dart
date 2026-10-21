@@ -99,6 +99,23 @@ class _ReviewerLoginSheetState extends State<_ReviewerLoginSheet> {
     super.initState();
     _emailController = TextEditingController(text: kDefaultReviewerEmail);
     _passwordController = TextEditingController(text: kDefaultReviewerPassword);
+    _loadDynamicCredentials();
+  }
+
+  Future<void> _loadDynamicCredentials() async {
+    try {
+      final config = await ApiService.checkAppVersion();
+      if (config != null && mounted) {
+        final email = config['reviewerEmail']?.toString().trim();
+        final pass = config['reviewerPassword']?.toString().trim();
+        if (email != null && email.isNotEmpty) {
+          _emailController.text = email;
+        }
+        if (pass != null && pass.isNotEmpty) {
+          _passwordController.text = pass;
+        }
+      }
+    } catch (_) {}
   }
 
   @override

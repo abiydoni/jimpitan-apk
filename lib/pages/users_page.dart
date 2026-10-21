@@ -185,6 +185,8 @@ class _UsersPageState extends State<UsersPage> {
         ).showSnackBar(SnackBar(content: Text('Gagal membuat PDF: $e')));
       }
     }
+  }
+
   String _generate10DigitJmpUniqueCode() {
     const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     final rand = Random();

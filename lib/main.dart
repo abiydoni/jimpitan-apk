@@ -3044,7 +3044,7 @@ class _DashboardPageState extends State<DashboardPage>
                   }).toList(),
                   carouselController: _carouselController,
                   options: CarouselOptions(
-                    height: 140,
+                    height: 148,
                     viewportFraction: 0.9,
                     enlargeCenterPage: true,
                     autoPlay: slidesData.length > 1,
@@ -3272,7 +3272,7 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: isBill
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

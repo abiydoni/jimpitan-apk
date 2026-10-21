@@ -25,10 +25,6 @@ import 'package:jimpitan/utils/api_service.dart';
 /// Toggle master untuk mengaktifkan / mematikan tombol login peninjau.
 const bool kEnableReviewerBypass = false;
 
-/// Default kredensial yang didaftarkan di Google Play Console > Akses Aplikasi:
-const String kDefaultReviewerEmail = 'fourbee02@gmail.com';
-const String kDefaultReviewerPassword = 'Reviewer2026!';
-
 /// Menampilkan dialog modal login akun penguji (Play Store)
 void showReviewerLoginModal(BuildContext context, {required Function(User user) onSuccess}) {
   showModalBottomSheet(
@@ -97,25 +93,10 @@ class _ReviewerLoginSheetState extends State<_ReviewerLoginSheet> {
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController(text: kDefaultReviewerEmail);
-    _passwordController = TextEditingController(text: kDefaultReviewerPassword);
-    _loadDynamicCredentials();
-  }
-
-  Future<void> _loadDynamicCredentials() async {
-    try {
-      final config = await ApiService.checkAppVersion();
-      if (config != null && mounted) {
-        final email = config['reviewerEmail']?.toString().trim();
-        final pass = config['reviewerPassword']?.toString().trim();
-        if (email != null && email.isNotEmpty) {
-          _emailController.text = email;
-        }
-        if (pass != null && pass.isNotEmpty) {
-          _passwordController.text = pass;
-        }
-      }
-    } catch (_) {}
+    // Input form TIDAK diisi otomatis (kosong) demi keamanan.
+    // Kredensial wajib diinput manual dan akan diverifikasi ke tabel database system_settings.
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
   }
 
   @override
@@ -138,6 +119,13 @@ class _ReviewerLoginSheetState extends State<_ReviewerLoginSheet> {
     EasyLoading.show(status: 'Memverifikasi akun penguji...');
 
     try {
+      // 1. Verifikasi kredensial langsung terhadap tabel database system_settings di server
+      final verifyRes = await ApiService.verifyReviewerCredentials(email, password);
+      if (verifyRes['success'] != true) {
+        throw Exception(verifyRes['message'] ?? 'Kredensial penguji tidak sesuai dengan sistem.');
+      }
+
+      // 2. Jika valid di tabel system_settings, lanjutkan login ke Firebase Auth
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -150,7 +138,7 @@ class _ReviewerLoginSheetState extends State<_ReviewerLoginSheet> {
           await ApiService.loginSync({
             'uid': user.uid,
             'email': user.email,
-            'name': user.displayName ?? 'Four Bee',
+            'name': user.displayName ?? 'Penguji Play Store',
             'photoUrl': user.photoURL,
           });
         } catch (_) {}
@@ -175,7 +163,8 @@ class _ReviewerLoginSheetState extends State<_ReviewerLoginSheet> {
     } catch (e) {
       EasyLoading.dismiss();
       if (mounted) {
-        CustomToast.show(context, 'Terjadi kesalahan: $e', isError: true);
+        final errText = e.toString().replaceFirst('Exception: ', '');
+        CustomToast.show(context, errText, isError: true);
       }
     } finally {
       if (mounted) {

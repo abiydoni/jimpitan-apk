@@ -234,6 +234,29 @@ class ApiService {
     }
   }
 
+  /// Verifikasi kredensial penguji Play Store langsung ke tabel database system_settings di server.
+  static Future<Map<String, dynamic>> verifyReviewerCredentials(String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/config/reviewer-verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email.trim(),
+          'password': password,
+        }),
+      );
+      final body = json.decode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return {'success': true, 'message': body['message'] ?? 'Kredensial valid'};
+      } else {
+        return {'success': false, 'message': body['message'] ?? 'Email atau password penguji tidak cocok dengan sistem.'};
+      }
+    } catch (e) {
+      debugPrint('Error verifying reviewer credentials: $e');
+      return {'success': false, 'message': 'Gagal menghubungi server: $e'};
+    }
+  }
+
   static final Map<String, List<dynamic>> _usersCache = {};
 
   static void clearUsersCache() {

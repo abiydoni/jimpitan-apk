@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'dart:convert';
@@ -25,6 +26,10 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  final _villageFormKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _addressController;
+  String _uniqueCode = '';
   DateTime? _startDate;
   bool _isLoading = true;
   Map<String, dynamic>? _subscriptionData;
@@ -34,13 +39,26 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController();
+    _addressController = TextEditingController();
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSettings() async {
     try {
       final villageData = await ApiService.getVillage(widget.villageId);
       if (villageData != null) {
+        _nameController.text = villageData['name']?.toString() ?? '';
+        _addressController.text = villageData['address']?.toString() ?? '';
+        _uniqueCode = villageData['uniqueCode']?.toString() ?? '';
+
         Map<String, dynamic> config = {};
         if (villageData['config'] != null) {
           if (villageData['config'] is String) {
@@ -73,6 +91,38 @@ class _SettingsPageState extends State<SettingsPage> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _saveVillageInfo() async {
+    if (!_canEdit) return;
+    if (!_villageFormKey.currentState!.validate()) return;
+
+    final newName = _nameController.text.trim();
+    final newAddress = _addressController.text.trim();
+
+    try {
+      EasyLoading.show(status: 'Menyimpan Profil Desa...');
+      final success = await ApiService.updateVillage(widget.villageId, {
+        'name': newName,
+        'address': newAddress,
+      });
+
+      if (success) {
+        if (mounted) {
+          CustomToast.show(context, 'Data profil desa berhasil diperbarui!');
+        }
+      } else {
+        if (mounted) {
+          CustomToast.show(context, 'Gagal memperbarui data desa', isError: true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(context, 'Terjadi kesalahan: $e', isError: true);
+      }
+    } finally {
+      EasyLoading.dismiss();
     }
   }
 
@@ -162,6 +212,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _buildVillageInfoCard(themeColor),
+                    const SizedBox(height: 16),
                     Card(
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -513,4 +565,195 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+
+  Widget _buildVillageInfoCard(Color themeColor) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _villageFormKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: themeColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.maps_home_work, color: themeColor),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Profil & Informasi Desa',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Nama, alamat resmi, dan kode registrasi warga',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _nameController,
+                enabled: _canEdit,
+                decoration: InputDecoration(
+                  labelText: 'Nama Desa / Lingkungan',
+                  hintText: 'Contoh: RT 03 RW 05 Sukamaju',
+                  prefixIcon: Icon(Icons.apartment, color: themeColor),
+                  filled: true,
+                  fillColor: _canEdit ? const Color(0xFFF8FAFC) : Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                     borderRadius: BorderRadius.circular(12),
+                     borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: themeColor, width: 2),
+                  ),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Nama desa tidak boleh kosong';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              // Kode Unik Desa
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: themeColor.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: themeColor.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.vpn_key_rounded, color: themeColor, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Kode Unik Desa (Gabung Warga)',
+                            style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _uniqueCode.isNotEmpty ? _uniqueCode : '-',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: themeColor,
+                              letterSpacing: 2.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_uniqueCode.isNotEmpty)
+                      IconButton(
+                        icon: Icon(Icons.copy_rounded, color: themeColor),
+                        tooltip: 'Salin Kode Desa',
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: _uniqueCode));
+                          CustomToast.show(context, 'Kode Desa disalin: $_uniqueCode');
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _addressController,
+                enabled: _canEdit,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: 'Alamat / Lokasi Desa',
+                  hintText: 'Alamat lengkap desa / RT / RW',
+                  prefixIcon: Icon(Icons.location_on_outlined, color: themeColor),
+                  filled: true,
+                  fillColor: _canEdit ? const Color(0xFFF8FAFC) : Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: themeColor, width: 2),
+                  ),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Alamat desa tidak boleh kosong';
+                  }
+                  return null;
+                },
+              ),
+              if (_canEdit) ...[
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.save_outlined, size: 20),
+                    label: const Text(
+                      'Simpan Perubahan Desa',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    onPressed: _saveVillageInfo,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
+

@@ -534,17 +534,32 @@ class ApiService {
     }
   }
 
-  static Future<bool> registerVillage(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> registerVillage(
+      Map<String, dynamic> data) async {
     try {
       final response = await _post(
         Uri.parse('$baseUrl/master/villages/register'),
         headers: await _getHeaders(), // Amankan dengan token
         body: json.encode(data),
       );
-      return response.statusCode == 200 || response.statusCode == 201;
+      final resBody = json.decode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': resBody['message'] ?? 'Desa berhasil didaftarkan',
+          'data': resBody['data'],
+        };
+      }
+      return {
+        'success': false,
+        'message': resBody['message'] ?? 'Gagal mendaftarkan desa',
+      };
     } catch (e) {
       debugPrint('Error registering village: $e');
-      return false;
+      return {
+        'success': false,
+        'message': 'Terjadi kesalahan jaringan: $e',
+      };
     }
   }
 

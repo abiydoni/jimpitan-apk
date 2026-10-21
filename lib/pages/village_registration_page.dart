@@ -131,16 +131,59 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
         'rtRw': rtRw,
       };
 
-      final success = await ApiService.registerVillage(data);
+      final result = await ApiService.registerVillage(data);
 
-      if (!success) {
-        throw Exception('Gagal mendaftarkan desa. Pastikan semua data terisi dengan benar.');
+      if (result['success'] != true) {
+        EasyLoading.dismiss();
+        final errorMsg = result['message']?.toString() ??
+            'Gagal mendaftarkan desa. Pastikan semua data terisi dengan benar.';
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                  SizedBox(width: 8),
+                  Text(
+                    'Periksa Kembali Data',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: Text(
+                errorMsg,
+                style: const TextStyle(fontSize: 14, height: 1.4),
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Ganti Data'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
       }
 
       if (mounted) {
+        EasyLoading.dismiss();
+        CustomToast.show(context, 'Pendaftaran desa berhasil!');
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (context) => AuthWrapper(user: FirebaseAuth.instance.currentUser!),
+            builder: (context) =>
+                AuthWrapper(user: FirebaseAuth.instance.currentUser!),
           ),
           (route) => false,
         ); 

@@ -185,6 +185,14 @@ class _UsersPageState extends State<UsersPage> {
         ).showSnackBar(SnackBar(content: Text('Gagal membuat PDF: $e')));
       }
     }
+  String _generate10DigitJmpUniqueCode() {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    final rand = Random();
+    final suffix = List.generate(
+      7,
+      (_) => chars[rand.nextInt(chars.length)],
+    ).join();
+    return 'JMP$suffix';
   }
 
   Future<void> _importCsv() async {
@@ -1747,10 +1755,13 @@ class _UsersPageState extends State<UsersPage> {
   void _executeApprove(String uid) async {
     EasyLoading.show(status: 'Menyetujui...');
     try {
-      await ApiService.updateUserStatus(uid, {'status': 'ACTIVE'});
+      await ApiService.updateUserStatus(uid, {
+        'status': 'ACTIVE',
+        'villageId': _currentVillageId,
+      });
       _loadData();
       if (mounted) {
-        CustomToast.show(context, 'Warga berhasil disetujui!');
+        CustomToast.show(context, 'Warga berhasil disetujui sebagai KK Baru!');
       }
     } catch (e) {
       EasyLoading.showError('Gagal menyetujui: ${e.toString()}');
@@ -2183,10 +2194,11 @@ class _UsersPageState extends State<UsersPage> {
 
         for (var family in groupedFamilies.values) {
           final rawCode = family['uniqueCode']?.toString().trim();
-          if (rawCode == null || rawCode.isEmpty || rawCode == 'Loading...') {
-            family['uniqueCode'] = (family['noKK'] != null && family['noKK'].toString().length >= 4)
-                ? family['noKK'].toString()
-                : (family['docId'] ?? family['familyId'] ?? '').toString();
+          if (rawCode == null ||
+              rawCode.isEmpty ||
+              rawCode == 'Loading...' ||
+              (rawCode.length == 16 && RegExp(r'^\d+$').hasMatch(rawCode))) {
+            family['uniqueCode'] = _generate10DigitJmpUniqueCode();
           }
         }
 
@@ -2270,9 +2282,10 @@ class _UsersPageState extends State<UsersPage> {
                             'name': data['name'] ?? 'Tanpa Nama',
                             'code': (data['uniqueCode'] != null &&
                                     data['uniqueCode'].toString().isNotEmpty &&
-                                    data['uniqueCode'] != 'Loading...')
+                                    data['uniqueCode'] != 'Loading...' &&
+                                    !(data['uniqueCode'].toString().length == 16 && RegExp(r'^\d+$').hasMatch(data['uniqueCode'].toString())))
                                 ? data['uniqueCode'].toString()
-                                : (data['noKK'] ?? data['docId'] ?? '').toString(),
+                                : _generate10DigitJmpUniqueCode(),
                           };
                         }
                       } else {
@@ -2416,9 +2429,10 @@ class _UsersPageState extends State<UsersPage> {
                                             'name': name,
                                             'code': (user['uniqueCode'] != null &&
                                                     user['uniqueCode'].toString().isNotEmpty &&
-                                                    user['uniqueCode'] != 'Loading...')
+                                                    user['uniqueCode'] != 'Loading...' &&
+                                                    !(user['uniqueCode'].toString().length == 16 && RegExp(r'^\d+$').hasMatch(user['uniqueCode'].toString())))
                                                 ? user['uniqueCode'].toString()
-                                                : (user['noKK'] ?? user['docId'] ?? '').toString(),
+                                                : _generate10DigitJmpUniqueCode(),
                                           };
                                         } else {
                                           _selectedUsersForQR.remove(docId);
@@ -2551,9 +2565,10 @@ class _UsersPageState extends State<UsersPage> {
                                             name,
                                             (user['uniqueCode'] != null &&
                                                     user['uniqueCode'].toString().isNotEmpty &&
-                                                    user['uniqueCode'] != 'Loading...')
+                                                    user['uniqueCode'] != 'Loading...' &&
+                                                    !(user['uniqueCode'].toString().length == 16 && RegExp(r'^\d+$').hasMatch(user['uniqueCode'].toString())))
                                                 ? user['uniqueCode'].toString()
-                                                : (user['noKK'] ?? user['docId'] ?? '').toString(),
+                                                : _generate10DigitJmpUniqueCode(),
                                           ),
                                         ),
                                         const Text(

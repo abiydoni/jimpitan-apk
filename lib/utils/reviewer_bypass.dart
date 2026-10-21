@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
+import 'package:jimpitan/utils/api_service.dart';
 
 /// ============================================================================
 /// GOOGLE PLAY REVIEWER / DEMO BYPASS
@@ -25,7 +26,7 @@ import 'package:jimpitan/utils/custom_toast.dart';
 const bool kEnableReviewerBypass = false;
 
 /// Default kredensial yang didaftarkan di Google Play Console > Akses Aplikasi:
-const String kDefaultReviewerEmail = 'appsbeedua@gmail.com';
+const String kDefaultReviewerEmail = 'fourbee02@gmail.com';
 const String kDefaultReviewerPassword = 'Reviewer2026!';
 
 /// Menampilkan dialog modal login akun penguji (Play Store)
@@ -88,11 +89,17 @@ class _ReviewerLoginSheet extends StatefulWidget {
 }
 
 class _ReviewerLoginSheetState extends State<_ReviewerLoginSheet> {
-  // Tidak terisi otomatis sesuai permintaan agar form kosong saat dibuka
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
   bool _obscurePassword = true;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(text: kDefaultReviewerEmail);
+    _passwordController = TextEditingController(text: kDefaultReviewerPassword);
+  }
 
   @override
   void dispose() {
@@ -121,6 +128,16 @@ class _ReviewerLoginSheetState extends State<_ReviewerLoginSheet> {
 
       final user = credential.user;
       if (user != null) {
+        // Sinkronkan ke database backend
+        try {
+          await ApiService.loginSync({
+            'uid': user.uid,
+            'email': user.email,
+            'name': user.displayName ?? 'Four Bee',
+            'photoUrl': user.photoURL,
+          });
+        } catch (_) {}
+
         EasyLoading.dismiss();
         if (mounted) {
           Navigator.of(context).pop(); // Tutup bottom sheet

@@ -2174,7 +2174,19 @@ class _UsersPageState extends State<UsersPage> {
                 groupedFamilies[familyId]!['docId'] = rawFamId;
                 groupedFamilies[familyId]!['familyId'] = rawFamId;
               }
+              if (data['uniqueCode'] != null && data['uniqueCode'].toString().isNotEmpty && data['uniqueCode'] != 'Loading...') {
+                groupedFamilies[familyId]!['uniqueCode'] = data['uniqueCode'];
+              }
             }
+          }
+        }
+
+        for (var family in groupedFamilies.values) {
+          final rawCode = family['uniqueCode']?.toString().trim();
+          if (rawCode == null || rawCode.isEmpty || rawCode == 'Loading...') {
+            family['uniqueCode'] = (family['noKK'] != null && family['noKK'].toString().length >= 4)
+                ? family['noKK'].toString()
+                : (family['docId'] ?? family['familyId'] ?? '').toString();
           }
         }
 
@@ -2256,7 +2268,11 @@ class _UsersPageState extends State<UsersPage> {
                         for (var data in users) {
                           _selectedUsersForQR[data['docId']] = {
                             'name': data['name'] ?? 'Tanpa Nama',
-                            'code': data['uniqueCode'] ?? 'Loading...',
+                            'code': (data['uniqueCode'] != null &&
+                                    data['uniqueCode'].toString().isNotEmpty &&
+                                    data['uniqueCode'] != 'Loading...')
+                                ? data['uniqueCode'].toString()
+                                : (data['noKK'] ?? data['docId'] ?? '').toString(),
                           };
                         }
                       } else {
@@ -2398,9 +2414,11 @@ class _UsersPageState extends State<UsersPage> {
                                         if (val == true) {
                                           _selectedUsersForQR[docId] = {
                                             'name': name,
-                                            'code':
-                                                user['uniqueCode'] ??
-                                                'Loading...',
+                                            'code': (user['uniqueCode'] != null &&
+                                                    user['uniqueCode'].toString().isNotEmpty &&
+                                                    user['uniqueCode'] != 'Loading...')
+                                                ? user['uniqueCode'].toString()
+                                                : (user['noKK'] ?? user['docId'] ?? '').toString(),
                                           };
                                         } else {
                                           _selectedUsersForQR.remove(docId);
@@ -2531,7 +2549,11 @@ class _UsersPageState extends State<UsersPage> {
                                           onPressed: () => _showCodeDialog(
                                             docId,
                                             name,
-                                            user['uniqueCode'] ?? 'Loading...',
+                                            (user['uniqueCode'] != null &&
+                                                    user['uniqueCode'].toString().isNotEmpty &&
+                                                    user['uniqueCode'] != 'Loading...')
+                                                ? user['uniqueCode'].toString()
+                                                : (user['noKK'] ?? user['docId'] ?? '').toString(),
                                           ),
                                         ),
                                         const Text(

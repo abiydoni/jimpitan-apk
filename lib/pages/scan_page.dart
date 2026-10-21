@@ -254,7 +254,14 @@ class _ScanPageState extends State<ScanPage> {
 
       final usersResult = _cachedUsers!;
       var userData = usersResult.cast<Map<String, dynamic>?>().firstWhere(
-        (u) => u != null && (u['uniqueCode'] == qrData || u['kkId'] == qrData),
+        (u) =>
+            u != null &&
+            (u['uniqueCode']?.toString() == qrData ||
+                u['kkId']?.toString() == qrData ||
+                u['familyId']?.toString() == qrData ||
+                u['noKK']?.toString() == qrData ||
+                u['uid']?.toString() == qrData ||
+                u['id']?.toString() == qrData),
         orElse: () => null,
       );
 
@@ -263,7 +270,13 @@ class _ScanPageState extends State<ScanPage> {
         _cachedUsers = await ApiService.getUsers(widget.villageId);
         userData = _cachedUsers!.cast<Map<String, dynamic>?>().firstWhere(
           (u) =>
-              u != null && (u['uniqueCode'] == qrData || u['kkId'] == qrData),
+              u != null &&
+              (u['uniqueCode']?.toString() == qrData ||
+                  u['kkId']?.toString() == qrData ||
+                  u['familyId']?.toString() == qrData ||
+                  u['noKK']?.toString() == qrData ||
+                  u['uid']?.toString() == qrData ||
+                  u['id']?.toString() == qrData),
           orElse: () => null,
         );
       }

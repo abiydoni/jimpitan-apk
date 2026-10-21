@@ -396,6 +396,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const PendingApprovalPage();
         } else {
           data['docId'] = data['uid'];
+          data['familyId'] = data['familyId'] ?? data['code'] ?? data['uid'];
           final villageId = data['villageId'] as String?;
           if (villageId == null || villageId.isEmpty) {
             return DashboardPage(userData: data);
@@ -1585,6 +1586,10 @@ class _DashboardPageState extends State<DashboardPage>
       final updatedUser = await ApiService.getUser(uid);
       if (updatedUser != null && mounted) {
         setState(() {
+          widget.userData.addAll(updatedUser);
+          if (widget.userData['familyId'] == null) {
+            widget.userData['familyId'] = widget.userData['code'] ?? widget.userData['uid'];
+          }
           _userName =
               updatedUser['name'] ?? widget.userData['name'] ?? 'Pengguna';
         });
@@ -2903,7 +2908,7 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildCarouselSlider() {
-    final familyId = widget.userData['familyId'] ?? widget.userData['code'];
+    final familyId = widget.userData['familyId'] ?? widget.userData['code'] ?? widget.userData['uid'];
 
     return FutureBuilder<Map<String, dynamic>?>(
       future: _villagesFuture,

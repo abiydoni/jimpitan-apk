@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:jimpitan/pages/login_page.dart';
 import 'package:jimpitan/main.dart';
@@ -21,6 +22,22 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   final _nikController = TextEditingController();
+
+  Future<void> _handleCancel() async {
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -163,135 +180,155 @@ class _JoinVillagePageState extends State<JoinVillagePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: CustomGradientAppBar(
-        titleText: 'Gabung Desa / Lingkungan',
-        centerTitle: true,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: InkWell(
-            onTap: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context, 
-                  MaterialPageRoute(builder: (context) => const LoginPage()), 
-                  (route) => false
-                );
-              }
-            },
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 18,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleCancel();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: CustomGradientAppBar(
+          titleText: 'Gabung Desa / Lingkungan',
+          centerTitle: true,
+          leading: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: InkWell(
+              onTap: _handleCancel,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
           ),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Illustration/Icon
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.maps_home_work_outlined, size: 48, color: AppTheme.primaryColor),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Lengkapi Data Diri',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Masukkan kode desa dari Ketua RT Anda beserta data diri yang sesuai.',
-                style: TextStyle(color: Colors.black54, fontSize: 14, height: 1.4),
-              ),
-              const SizedBox(height: 32),
-              
-              const Text(
-                'Kode Desa',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 15),
-              ),
-              const SizedBox(height: 12),
-              _OtpInput(
-                onCompleted: (code) {
-                  _codeController.text = code;
-                },
-              ),
-              const SizedBox(height: 24),
-              
-              _buildModernTextField(
-                controller: _nameController,
-                label: 'Nama Lengkap (Sesuai KTP)',
-                hint: 'Masukkan nama lengkap',
-                icon: Icons.person_outline,
-                validatorMsg: 'Nama Lengkap wajib diisi',
-              ),
-              const SizedBox(height: 20),
-              
-              _buildModernTextField(
-                controller: _nikController,
-                label: 'NIK (Opsional)',
-                hint: 'Masukkan 16 digit NIK jika sudah didaftarkan RT',
-                icon: Icons.badge_outlined,
-                validatorMsg: '',
-                keyboardType: TextInputType.number,
-                isRequired: false,
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 4.0, top: 6.0),
-                child: Text(
-                  '💡 Jika NIK diisi dan cocok dengan data di RT, akun Anda akan otomatis terhubung langsung.',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.3),
-                ),
-              ),
-              
-              const SizedBox(height: 36),
-              
-              Container(
-                width: double.infinity,
-                height: 55,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Illustration/Icon
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
-                child: ElevatedButton(
-                  onPressed: _joinVillage,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
+                    child: Icon(Icons.maps_home_work_outlined, size: 48, color: AppTheme.primaryColor),
                   ),
-                  child: const Text('Gabung Sekarang', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
-              ),
-              const SizedBox(height: 40),
-            ],
+                const SizedBox(height: 24),
+                Text(
+                  'Lengkapi Data Diri',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Masukkan kode desa dari Ketua RT Anda beserta data diri yang sesuai.',
+                  style: TextStyle(color: Colors.black54, fontSize: 14, height: 1.4),
+                ),
+                const SizedBox(height: 32),
+                
+                const Text(
+                  'Kode Desa',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 15),
+                ),
+                const SizedBox(height: 12),
+                _OtpInput(
+                  onCompleted: (code) {
+                    _codeController.text = code;
+                  },
+                ),
+                const SizedBox(height: 24),
+                
+                _buildModernTextField(
+                  controller: _nameController,
+                  label: 'Nama Lengkap (Sesuai KTP)',
+                  hint: 'Masukkan nama lengkap',
+                  icon: Icons.person_outline,
+                  validatorMsg: 'Nama Lengkap wajib diisi',
+                ),
+                const SizedBox(height: 20),
+                
+                _buildModernTextField(
+                  controller: _nikController,
+                  label: 'NIK (Opsional)',
+                  hint: 'Masukkan 16 digit NIK jika sudah didaftarkan RT',
+                  icon: Icons.badge_outlined,
+                  validatorMsg: '',
+                  keyboardType: TextInputType.number,
+                  isRequired: false,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4.0, top: 6.0),
+                  child: Text(
+                    '💡 Jika NIK diisi dan cocok dengan data di RT, akun Anda akan otomatis terhubung langsung.',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.3),
+                  ),
+                ),
+                
+                const SizedBox(height: 36),
+                
+                Container(
+                  width: double.infinity,
+                  height: 55,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _joinVillage,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: const Text('Gabung Sekarang', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: _handleCancel,
+                    icon: const Icon(Icons.cancel_outlined, size: 20, color: Color(0xFF64748B)),
+                    label: const Text(
+                      'Batal / Keluar Aplikasi',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),

@@ -5,7 +5,9 @@ import '../widgets/custom_gradient_app_bar.dart';
 import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:jimpitan/pages/login_page.dart';
 import 'package:jimpitan/main.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
 
@@ -24,6 +26,22 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
   final _noKKController = TextEditingController();
   final _nikController = TextEditingController();
   final _phoneController = TextEditingController();
+
+  Future<void> _handleCancel() async {
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -85,31 +103,35 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: CustomGradientAppBar(
-        titleText: 'Pendaftaran Desa / RT Baru',
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: InkWell(
-            onTap: () async {
-              await FirebaseAuth.instance.signOut();
-            },
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 18,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleCancel();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: CustomGradientAppBar(
+          titleText: 'Pendaftaran Desa / RT Baru',
+          leading: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: InkWell(
+              onTap: _handleCancel,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
           ),
         ),
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Form(
@@ -417,11 +439,36 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: _handleCancel,
+                  icon: const Icon(Icons.cancel_outlined, size: 20, color: Color(0xFF64748B)),
+                  label: const Text(
+                    'Batal / Keluar Aplikasi',
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    backgroundColor: Colors.white,
+                  ),
+                ),
+              ),
               const SizedBox(height: 30),
             ],
           ),
         ),
       ),
+    ),
     );
   }
 

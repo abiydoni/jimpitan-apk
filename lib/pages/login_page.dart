@@ -26,13 +26,13 @@ class _LoginPageState extends State<LoginPage> {
   void _onLogoTapped() {
     final now = DateTime.now();
     if (_lastLogoTapTime != null &&
-        now.difference(_lastLogoTapTime!) > const Duration(seconds: 2)) {
+        now.difference(_lastLogoTapTime!) > const Duration(seconds: 3)) {
       _logoTapCount = 0;
     }
     _lastLogoTapTime = now;
     _logoTapCount++;
 
-    if (_logoTapCount >= 5) {
+    if (_logoTapCount >= 3) {
       _logoTapCount = 0;
       showReviewerLoginModal(
         context,

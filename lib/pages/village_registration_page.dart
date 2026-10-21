@@ -27,6 +27,64 @@ class _VillageRegistrationPageState extends State<VillageRegistrationPage> {
   final _nikController = TextEditingController();
   final _phoneController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkExistingUser());
+  }
+
+  Future<void> _checkExistingUser() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final userData = await ApiService.getUser(user.uid);
+      final status = userData?['status']?.toString();
+      final villageId = userData?['villageId']?.toString();
+      if (userData != null && status != 'INCOMPLETE' && villageId != null && villageId.isNotEmpty) {
+        final villageName = userData['village']?['name'] ?? villageId;
+        if (!mounted) return;
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Akun Sudah Terdaftar',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'Akun Anda (${user.email ?? ''}) sudah terdaftar di desa "$villageName".\n\n'
+              'Anda tidak dapat mendaftarkan desa baru dengan akun ini. Silakan masuk melalui menu login biasa.',
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            actions: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _handleCancel();
+                },
+                child: const Text('Kembali ke Login'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
   Future<void> _handleCancel() async {
     try {
       await GoogleSignIn().signOut();

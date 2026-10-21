@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // URL bisa diubah saat build tanpa edit kode:
@@ -139,13 +140,46 @@ class ApiService {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
         if (data['success'] == true) {
-          return data['data'];
+          final userData = data['data'];
+          if (userData != null && userData is Map<String, dynamic>) {
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('cached_user_$uid', json.encode(userData));
+            } catch (_) {}
+          }
+          return userData;
         }
       }
-      return null;
+
+      // Jika 404, server secara eksplisit mengonfirmasi user belum terdaftar
+      if (response.statusCode == 404) {
+        return null;
+      }
+
+      // Jika status error (502 Bad Gateway saat restart, 500, 503, dll),
+      // coba ambil dari cache lokal agar user tetap bisa masuk dashboard tanpa terganggu
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedJson = prefs.getString('cached_user_$uid');
+        if (cachedJson != null && cachedJson.isNotEmpty) {
+          return json.decode(cachedJson) as Map<String, dynamic>;
+        }
+      } catch (_) {}
+
+      throw Exception('Server sedang dalam proses restart atau tidak dapat diakses (HTTP ${response.statusCode})');
     } catch (e) {
       debugPrint('Error getting user: $e');
-      return null;
+      // Jika terjadi error koneksi / socket / timeout saat server restart, cek cache lokal
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedJson = prefs.getString('cached_user_$uid');
+        if (cachedJson != null && cachedJson.isNotEmpty) {
+          return json.decode(cachedJson) as Map<String, dynamic>;
+        }
+      } catch (_) {}
+
+      // Jika tidak ada cache sama sekali, lempar error agar AuthWrapper menampilkan layar Coba Lagi
+      rethrow;
     }
   }
 
@@ -161,7 +195,14 @@ class ApiService {
       if (response.statusCode == 200) {
         final Map<String, dynamic> resData = json.decode(response.body);
         if (resData['success'] == true) {
-          return resData['data'];
+          final resUser = resData['data'];
+          if (resUser != null && resUser is Map<String, dynamic> && resUser['uid'] != null) {
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('cached_user_${resUser['uid']}', json.encode(resUser));
+            } catch (_) {}
+          }
+          return resUser;
         }
       }
       return null;
@@ -170,6 +211,7 @@ class ApiService {
       return null;
     }
   }
+
 
   /// Cek versi terbaru app dari server.
   /// Endpoint ini tidak memerlukan autentikasi.

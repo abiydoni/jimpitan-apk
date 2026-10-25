@@ -54,6 +54,20 @@ class HelpPage extends StatelessWidget {
             HelpSubscriptionStatusWidget(villageId: villageId!),
           _buildVillageInfoCard(),
           _buildHelpCard(
+            title: 'Tutorial Lengkap Pemakaian Aplikasi (Web Bergambar)',
+            icon: Icons.menu_book_rounded,
+            description:
+                'Pelajari panduan visual lengkap mulai dari pembuatan desa baru, cara warga bergabung, input data warga & KK, hingga scan QR jimpitan harian yang kompatibel dengan tampilan HP.',
+            buttonText: 'Buka Tutorial Online',
+            onPressed: () async {
+              final Uri tutorialUri = Uri.parse('https://jimpitan-server.appsbee.my.id/tutorial');
+              if (await canLaunchUrl(tutorialUri)) {
+                await launchUrl(tutorialUri, mode: LaunchMode.externalApplication);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildHelpCard(
             title: 'Import Data Warga Massal (CSV)',
             icon: Icons.file_download,
             description:

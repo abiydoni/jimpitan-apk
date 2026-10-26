@@ -60,7 +60,7 @@ class HelpPage extends StatelessWidget {
                 'Pelajari panduan visual lengkap mulai dari pembuatan desa baru, cara warga bergabung, input data warga & KK, hingga scan QR jimpitan harian yang kompatibel dengan tampilan HP.',
             buttonText: 'Buka Tutorial Online',
             onPressed: () async {
-              final Uri tutorialUri = Uri.parse('https://jimpitan-server.appsbee.my.id/tutorial');
+              final Uri tutorialUri = Uri.parse('https://jimpitan-backend.appsbee.my.id/tutorial');
               if (await canLaunchUrl(tutorialUri)) {
                 await launchUrl(tutorialUri, mode: LaunchMode.externalApplication);
               }

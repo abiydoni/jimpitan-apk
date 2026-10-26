@@ -17,8 +17,10 @@ class HelpPage extends StatelessWidget {
 
   void _downloadCsvTemplate(BuildContext context) async {
     try {
-      final String csvHeader = "No KK,NIK,Nama Lengkap,Status Hubungan,Status Perkawinan,Jenis Kelamin,Tempat Lahir,Tanggal Lahir,Alamat,Agama,Pekerjaan,Status Hidup,Email,No HP,Jabatan,Kode Rumah\n";
-      final String sampleData = "3270123456789012,3270000000000001,Budi Santoso,Kepala Keluarga,Kawin,Laki-laki,Jakarta,1980-01-01,Jl. Merdeka No 1,Islam,Karyawan Swasta,Aktif,budi@email.com,08123456789,WARGA,\n"
+      final String csvHeader =
+          "No KK,NIK,Nama Lengkap,Status Hubungan,Status Perkawinan,Jenis Kelamin,Tempat Lahir,Tanggal Lahir,Alamat,Agama,Pekerjaan,Status Hidup,Email,No HP,Jabatan,Kode Rumah\n";
+      final String sampleData =
+          "3270123456789012,3270000000000001,Budi Santoso,Kepala Keluarga,Kawin,Laki-laki,Jakarta,1980-01-01,Jl. Merdeka No 1,Islam,Karyawan Swasta,Aktif,budi@email.com,08123456789,WARGA,\n"
           "3270123456789012,3270000000000002,Siti Aminah,Istri,Kawin,Perempuan,Bandung,1982-02-02,Jl. Merdeka No 1,Islam,Mengurus Rumah Tangga,Aktif,siti@email.com,08129876543,WARGA,\n";
 
       final String csvContent = csvHeader + sampleData;
@@ -44,9 +46,7 @@ class HelpPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomGradientAppBar(
-        titleText: 'Pusat Bantuan',
-      ),
+      appBar: const CustomGradientAppBar(titleText: 'Pusat Bantuan'),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
         children: [
@@ -60,9 +60,14 @@ class HelpPage extends StatelessWidget {
                 'Pelajari panduan visual lengkap mulai dari pembuatan desa baru, cara warga bergabung, input data warga & KK, hingga scan QR jimpitan harian yang kompatibel dengan tampilan HP.',
             buttonText: 'Buka Tutorial Online',
             onPressed: () async {
-              final Uri tutorialUri = Uri.parse('https://jimpitan-backend.appsbee.my.id/tutorial');
+              final Uri tutorialUri = Uri.parse(
+                'https://jimpitan-backend.appsbee.my.id/tutorial',
+              );
               if (await canLaunchUrl(tutorialUri)) {
-                await launchUrl(tutorialUri, mode: LaunchMode.externalApplication);
+                await launchUrl(
+                  tutorialUri,
+                  mode: LaunchMode.externalApplication,
+                );
               }
             },
           ),
@@ -74,29 +79,6 @@ class HelpPage extends StatelessWidget {
                 'Gunakan fitur ini untuk mengunduh format template CSV yang dibutuhkan saat Anda ingin menambahkan banyak warga sekaligus ke dalam sistem.',
             buttonText: 'Unduh Template CSV',
             onPressed: () => _downloadCsvTemplate(context),
-          ),
-          const SizedBox(height: 16),
-          _buildHelpCard(
-            title: 'Panduan Pengisian CSV',
-            icon: Icons.info_outline,
-            description:
-                '1. Kolom Wajib:\n'
-                '   • "No KK", "NIK", dan "Nama Lengkap" WAJIB diisi. Baris tanpa No KK, NIK, atau Nama Lengkap akan dilewati otomatis oleh sistem.\n\n'
-                '2. Kolom Kode Rumah (Otomatis / Opsional):\n'
-                '   • Kolom "Kode Rumah" BISA DIKOSONGKAN. Jika dikosongkan, sistem akan otomatis membuatkan kode rumah unik secara otomatis.\n'
-                '   • Baris yang memiliki "No KK" yang sama akan otomatis dikelompokkan ke dalam 1 Kartu Keluarga / Kode Rumah yang sama.\n\n'
-                '3. Pilihan Dropdown Sesuai Form & Tabel Warga:\n'
-                '   • Jenis Kelamin: Laki-laki / Perempuan (Default: Laki-laki).\n'
-                '   • Status Hubungan: Kepala Keluarga / Istri / Anak / Anggota Keluarga (Default: Anggota Keluarga).\n'
-                '   • Status Perkawinan: Belum Kawin / Kawin / Cerai Hidup / Cerai Mati (Default: Belum Kawin).\n'
-                '   • Status Hidup: Aktif / Tidak Aktif / Meninggal / Pindah (Default: Aktif).\n'
-                '   • Agama: Islam / Kristen / Katolik / Hindu / Buddha / Konghucu / Lainnya (Default: Islam).\n'
-                '   • Pekerjaan: PNS / TNI/Polri / Karyawan Swasta / Wiraswasta / Pelajar/Mahasiswa / Mengurus Rumah Tangga / Petani/Pekebun / Buruh / Belum/Tidak Bekerja / Lainnya (Default: Belum/Tidak Bekerja).\n'
-                '   • Jabatan (Role): WARGA, ADMIN_DESA, atau peran kustom desa lainnya. Dapat diisi lebih dari satu dipisah koma, misal: WARGA,PENGURUS_RT atau WARGA,BENDAHARA (Default: WARGA).\n\n'
-                '4. Format Data & Delimiter:\n'
-                '   • Tanggal Lahir: Format YYYY-MM-DD (contoh: 1990-12-31) atau DD-MM-YYYY (contoh: 31-12-1990).\n'
-                '   • Email & No HP: Opsional. Jika diisi, email harus valid (memiliki tanda @).\n'
-                '   • File CSV dapat menggunakan pemisah tanda koma (,) maupun titik koma (;).',
           ),
         ],
       ),
@@ -210,12 +192,14 @@ class HelpPage extends StatelessWidget {
               // Header Section
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                ),
+                decoration: BoxDecoration(color: AppTheme.primaryColor),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_city, color: Colors.white, size: 28),
+                    const Icon(
+                      Icons.location_city,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -243,7 +227,7 @@ class HelpPage extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -260,7 +244,10 @@ class HelpPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryColor.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
@@ -287,16 +274,24 @@ class HelpPage extends StatelessWidget {
                           Builder(
                             builder: (ctx) => ElevatedButton.icon(
                               onPressed: () {
-                                Clipboard.setData(ClipboardData(text: uniqueCode));
+                                Clipboard.setData(
+                                  ClipboardData(text: uniqueCode),
+                                );
                                 CustomToast.show(ctx, 'Kode berhasil disalin!');
                               },
                               icon: const Icon(Icons.copy, size: 16),
-                              label: const Text('Salin', style: TextStyle(fontWeight: FontWeight.bold)),
+                              label: const Text(
+                                'Salin',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primaryColor,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -306,11 +301,11 @@ class HelpPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 24),
                     const Divider(),
                     const SizedBox(height: 20),
-                    
+
                     // Instructions Section
                     const Text(
                       'Bagaimana cara warga bergabung?',
@@ -325,27 +320,44 @@ class HelpPage extends StatelessWidget {
                       icon: Icons.download_rounded,
                       step: '1',
                       title: 'Unduh Aplikasi',
-                      desc: 'Warga mengunduh aplikasi Jimpitan Warga dari Play Store atau App Store.',
+                      desc:
+                          'Warga mengunduh aplikasi Jimpitan Warga dari Play Store atau App Store.',
                       extraAction: Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            final Uri marketUri = Uri.parse('market://details?id=jimpitan.appsbee.my.id');
-                            final Uri webUrl = Uri.parse('https://play.google.com/store/apps/details?id=jimpitan.appsbee.my.id');
+                            final Uri marketUri = Uri.parse(
+                              'market://details?id=jimpitan.appsbee.my.id',
+                            );
+                            final Uri webUrl = Uri.parse(
+                              'https://play.google.com/store/apps/details?id=jimpitan.appsbee.my.id',
+                            );
                             if (await canLaunchUrl(marketUri)) {
-                              await launchUrl(marketUri, mode: LaunchMode.externalApplication);
+                              await launchUrl(
+                                marketUri,
+                                mode: LaunchMode.externalApplication,
+                              );
                             } else if (await canLaunchUrl(webUrl)) {
-                              await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+                              await launchUrl(
+                                webUrl,
+                                mode: LaunchMode.externalApplication,
+                              );
                             } else {
                               debugPrint('Could not launch play store');
                             }
                           },
                           icon: const Icon(Icons.shop, size: 16),
-                          label: const Text('Buka Play Store', style: TextStyle(fontSize: 12)),
+                          label: const Text(
+                            'Buka Play Store',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.primaryColor,
                             side: BorderSide(color: AppTheme.primaryColor),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -356,19 +368,22 @@ class HelpPage extends StatelessWidget {
                       icon: Icons.person_add_alt_1_rounded,
                       step: '2',
                       title: 'Buat Akun Baru',
-                      desc: 'Warga mendaftar atau masuk dengan instan menggunakan akun Google.',
+                      desc:
+                          'Warga mendaftar atau masuk dengan instan menggunakan akun Google.',
                     ),
                     _buildStepRow(
                       icon: Icons.login_rounded,
                       step: '3',
                       title: 'Masukkan Kode',
-                      desc: 'Warga memilih menu "Bergabung dengan Desa" dan memasukkan kode di atas.',
+                      desc:
+                          'Warga memilih menu "Bergabung dengan Desa" dan memasukkan kode di atas.',
                     ),
                     _buildStepRow(
                       icon: Icons.verified_user_rounded,
                       step: '4',
                       title: 'Tunggu Persetujuan',
-                      desc: 'Admin (Anda) menyetujui permintaan warga yang masuk melalui aplikasi.',
+                      desc:
+                          'Admin (Anda) menyetujui permintaan warga yang masuk melalui aplikasi.',
                       isLast: true,
                     ),
                   ],

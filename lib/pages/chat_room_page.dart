@@ -12,7 +12,6 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:jimpitan/utils/api_service.dart';
 import 'dart:async';
-import 'package:swipe_to/swipe_to.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
 
 class ChatRoomPage extends StatefulWidget {
@@ -114,7 +113,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     messages.sort((a, b) {
       final tA = DateTime.tryParse(a['createdAt'] ?? '')?.toLocal() ?? DateTime.now();
       final tB = DateTime.tryParse(b['createdAt'] ?? '')?.toLocal() ?? DateTime.now();
-      return tB.compareTo(tA); // Descending
+      final cmp = tB.compareTo(tA); // Descending
+      if (cmp != 0) return cmp;
+      return (b['id'] ?? '').toString().compareTo((a['id'] ?? '').toString());
     });
 
     if (mounted) {
@@ -198,6 +199,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       final senderName =
           _userData?['name'] ?? 'Warga';
 
+      final replySenderName = (_replyingToMessage?['senderUid'] == currentUser?.uid)
+          ? senderName
+          : (_replyingToMessage?['senderName'] ?? 'Warga');
+
       await ApiService.sendMessage(
         widget.villageId,
         currentUser!.uid,
@@ -207,7 +212,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         senderName: senderName,
         replyToId: _replyingToMessage?['id'],
         replyToMessage: _replyingToMessage?['message'] ?? _replyingToMessage?['text'],
-        replyToSenderName: _replyingToMessage?['senderName'] ?? 'Warga',
+        replyToSenderName: replySenderName,
       );
 
       setState(() {
@@ -247,9 +252,13 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     final now = DateTime.now();
     final difference = now.difference(sentTime);
 
-    // Batas waktu WA: Edit max 15 menit, Hapus max 2 hari (48 jam)
-    final canEdit = difference.inMinutes <= 15;
-    final canDelete = difference.inHours <= 48;
+    final myUid = currentUser?.uid ?? FirebaseAuth.instance.currentUser?.uid;
+    final messageSenderUid = data['senderUid'] ?? data['senderId'];
+    final isMe = myUid != null && messageSenderUid == myUid;
+
+    // Batas waktu WA: Edit max 15 menit, Hapus max 2 hari (48 jam) - Hanya untuk pesan milik sendiri
+    final canEdit = isMe && difference.inMinutes <= 15;
+    final canDelete = isMe && difference.inHours <= 48;
 
     final renderBox = bubbleContext.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
@@ -258,16 +267,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     final offset = renderBox.localToGlobal(Offset.zero);
     final overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
 
-    final isMe = data['senderId'] == FirebaseAuth.instance.currentUser?.uid;
     final x = isMe ? offset.dx + size.width : offset.dx;
 
     // Default position is at the bottom of the bubble
     double dy = offset.dy + size.height;
     
     // If placing it below the bubble would go off-screen, place it above the bubble instead.
-    // Menu height is ~160
-    if (dy + 160 > overlay.size.height) {
-      dy = offset.dy - 160;
+    // Menu height is ~180
+    if (dy + 180 > overlay.size.height) {
+      dy = offset.dy - 180;
     }
 
     final relativeRect = RelativeRect.fromRect(
@@ -282,6 +290,19 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       items: [
+        PopupMenuItem(
+          value: 'reply',
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.reply, color: AppTheme.primaryColor, size: 18),
+              const SizedBox(width: 12),
+              const Text('Balas Pesan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
         PopupMenuItem(
           value: 'copy',
           height: 36,
@@ -341,11 +362,18 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
     if (!mounted) return;
 
-    if (result == 'copy') {
+    if (result == 'reply') {
+      setState(() {
+        _editingMessageId = null;
+        _replyingToMessage = Map<String, dynamic>.from(data);
+      });
+      _focusNode.requestFocus();
+    } else if (result == 'copy') {
       Clipboard.setData(ClipboardData(text: data['message'] ?? data['text'] ?? ''));
       CustomToast.show(context, 'Pesan disalin');
     } else if (result == 'edit') {
       setState(() {
+        _replyingToMessage = null;
         _editingMessageId = data['id'];
         _msgController.text = data['message'] ?? data['text'] ?? '';
         _focusNode.requestFocus();
@@ -615,6 +643,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                       itemCount: _messages.length,
                       itemBuilder: (context, index) {
                         final data = _messages[index];
+                        final messageId = data['id']?.toString() ?? 'msg_$index';
                         final isMe = data['senderUid'] == currentUser?.uid;
                         final isDeleted = data['isDeleted'] == true;
                         final isEdited = data['isEdited'] == true;
@@ -645,14 +674,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                           }
                         }
 
-                        Widget bubble = SwipeTo(
-                          onRightSwipe: (details) {
-                            if (!isDeleted) {
-                              setState(() {
-                                _replyingToMessage = data;
-                                _focusNode.requestFocus();
-                              });
-                            }
+                        Widget bubble = SwipeToReply(
+                          key: ValueKey('swipe_$messageId'),
+                          enabled: !isDeleted,
+                          onReply: () {
+                            setState(() {
+                              _editingMessageId = null;
+                              _replyingToMessage = Map<String, dynamic>.from(data);
+                            });
+                            _focusNode.requestFocus();
                           },
                           child: Align(
                             alignment: isMe
@@ -882,37 +912,43 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                         );
 
                         if (showDateHeader && currentDateTime != null) {
-                          return Column(
-                            children: [
-                              Container(
-                                margin: const EdgeInsets.symmetric(
-                                  vertical: 20,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withValues(
-                                    alpha: 0.1,
+                          return KeyedSubtree(
+                            key: ValueKey('header_$messageId'),
+                            child: Column(
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 20,
                                   ),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  _getDateLabel(currentDateTime),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.primaryColor,
-                                    fontWeight: FontWeight.bold,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    _getDateLabel(currentDateTime),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              bubble,
-                            ],
+                                bubble,
+                              ],
+                            ),
                           );
                         }
 
-                        return bubble;
+                        return KeyedSubtree(
+                          key: ValueKey('item_$messageId'),
+                          child: bubble,
+                        );
                       },
                     ),
             ),
@@ -950,7 +986,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      _replyingToMessage!['senderName'] ?? 'Warga',
+                                      _replyingToMessage!['senderUid'] == currentUser?.uid
+                                          ? 'Anda'
+                                          : (_replyingToMessage!['senderName'] ?? 'Warga'),
                                       style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
                                     ),
                                     const SizedBox(height: 4),
@@ -1118,3 +1156,154 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 }
 
+
+
+/// Widget swipe-to-reply WhatsApp style yang interaktif dan akurat
+class SwipeToReply extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onReply;
+  final bool enabled;
+
+  const SwipeToReply({
+    super.key,
+    required this.child,
+    required this.onReply,
+    this.enabled = true,
+  });
+
+  @override
+  State<SwipeToReply> createState() => _SwipeToReplyState();
+}
+
+class _SwipeToReplyState extends State<SwipeToReply>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _animation;
+  double _dragOffset = 0.0;
+  bool _hasTriggeredHaptic = false;
+  static const double _replyThreshold = 45.0;
+  static const double _maxDragOffset = 70.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _animation = Tween<double>(begin: 0.0, end: 0.0).animate(_controller);
+    _controller.addListener(() {
+      setState(() {
+        _dragOffset = _animation.value;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    if (!widget.enabled) return;
+
+    double newOffset = _dragOffset + details.primaryDelta!;
+    if (newOffset > _maxDragOffset) {
+      newOffset = _maxDragOffset;
+    } else if (newOffset < -_maxDragOffset) {
+      newOffset = -_maxDragOffset;
+    }
+
+    if (newOffset.abs() >= _replyThreshold && !_hasTriggeredHaptic) {
+      HapticFeedback.lightImpact();
+      _hasTriggeredHaptic = true;
+    } else if (newOffset.abs() < _replyThreshold && _hasTriggeredHaptic) {
+      _hasTriggeredHaptic = false;
+    }
+
+    setState(() {
+      _dragOffset = newOffset;
+    });
+  }
+
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    if (!widget.enabled) return;
+
+    final shouldReply = _dragOffset.abs() >= _replyThreshold;
+    if (shouldReply) {
+      widget.onReply();
+    }
+
+    _animateBack();
+  }
+
+  void _onHorizontalDragCancel() {
+    _animateBack();
+  }
+
+  void _animateBack() {
+    _hasTriggeredHaptic = false;
+    _animation = Tween<double>(
+      begin: _dragOffset,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
+    ));
+    _controller.forward(from: 0.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+
+    final isSwipingRight = _dragOffset >= 0;
+    final progress = (_dragOffset.abs() / _replyThreshold).clamp(0.0, 1.0);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: _onHorizontalDragUpdate,
+      onHorizontalDragEnd: _onHorizontalDragEnd,
+      onHorizontalDragCancel: _onHorizontalDragCancel,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          if (_dragOffset.abs() > 4)
+            Positioned(
+              left: isSwipingRight ? 16 : null,
+              right: !isSwipingRight ? 16 : null,
+              child: Opacity(
+                opacity: progress,
+                child: Transform.scale(
+                  scale: 0.5 + (progress * 0.5),
+                  child: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: progress >= 1.0
+                          ? AppTheme.primaryColor
+                          : Colors.grey.shade400,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Transform.flip(
+                      flipX: !isSwipingRight,
+                      child: const Icon(
+                        Icons.reply,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Transform.translate(
+            offset: Offset(_dragOffset, 0),
+            child: widget.child,
+          ),
+        ],
+      ),
+    );
+  }
+}

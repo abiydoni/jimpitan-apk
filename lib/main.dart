@@ -1102,37 +1102,6 @@ class _DashboardPageState extends State<DashboardPage>
 
       Map<String, int> payments = {};
 
-      // Fetch payments dari dues_journals (bulanan/tahunan/sekali bayar)
-      for (var data in journalRaw) {
-        final k = data['kkId']?.toString() ?? '';
-        if (k != familyId && k != code && k != noKk && (uid.isEmpty || k != uid)) continue;
-        final tariffId = data['tariffId']?.toString() ?? '';
-        final amount = (data['amount'] as num?)?.toInt() ?? 0;
-        if (tariffId.isNotEmpty) {
-          payments[tariffId] = (payments[tariffId] ?? 0) + amount;
-        }
-      }
-
-      // Fetch jimpitan harian
-      for (var data in historyRaw) {
-        if (data['villageId'] != villageId) continue;
-        final k = data['kkId']?.toString() ?? '';
-        if (k != familyId && k != code && k != noKk && (uid.isEmpty || k != uid)) continue;
-
-        // Pembayaran tipe TAGIHAN sudah dicatat di dues_journals (journalRaw)
-        if (data['type']?.toString() == 'TAGIHAN') {
-          continue;
-        }
-
-        for (var tariff in tariffs) {
-          if (tariff['type']?.toString() == 'Harian') {
-            final tariffId = tariff['id']?.toString() ?? '';
-            final amount = (data['amount'] as num?)?.toInt() ?? 0;
-            payments[tariffId] = (payments[tariffId] ?? 0) + amount;
-          }
-        }
-      }
-
       DateTime getEffectiveStartDate(Map<String, dynamic> tariff) {
         DateTime effective = villageStart;
 
@@ -1162,6 +1131,85 @@ class _DashboardPageState extends State<DashboardPage>
           }
         }
         return effective;
+      }
+
+      // Fetch payments dari dues_journals (bulanan/tahunan/sekali bayar)
+      for (var data in journalRaw) {
+        final k = data['kkId']?.toString() ?? '';
+        if (k != familyId && k != code && k != noKk && (uid.isEmpty || k != uid)) continue;
+        final tariffId = data['tariffId']?.toString() ?? '';
+        final amount = (data['amount'] as num?)?.toInt() ?? 0;
+        if (tariffId.isEmpty) continue;
+
+        final matchedTariff = tariffs.firstWhere(
+          (t) => t['id']?.toString() == tariffId,
+          orElse: () => {},
+        );
+        if (matchedTariff.isNotEmpty) {
+          final start = getEffectiveStartDate(matchedTariff);
+          final startDay = DateTime(start.year, start.month, start.day);
+
+          final periodStr = data['period']?.toString() ?? '';
+          if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(periodStr)) {
+            final pDate = DateTime.tryParse(periodStr);
+            if (pDate != null && DateTime(pDate.year, pDate.month, pDate.day).isBefore(startDay)) {
+              continue;
+            }
+          } else if (RegExp(r'^\d{4}-\d{2}$').hasMatch(periodStr)) {
+            final parts = periodStr.split('-');
+            final pYear = int.tryParse(parts[0]) ?? 0;
+            final pMonth = int.tryParse(parts[1]) ?? 0;
+            final monthEnd = DateTime(pYear, pMonth + 1, 0, 23, 59, 59);
+            if (monthEnd.isBefore(startDay)) {
+              continue;
+            }
+          }
+        }
+
+        payments[tariffId] = (payments[tariffId] ?? 0) + amount;
+      }
+
+      // Fetch jimpitan harian
+      for (var data in historyRaw) {
+        if (data['villageId'] != villageId) continue;
+        final k = data['kkId']?.toString() ?? '';
+        if (k != familyId && k != code && k != noKk && (uid.isEmpty || k != uid)) continue;
+
+        // Pembayaran tipe TAGIHAN sudah dicatat di dues_journals (journalRaw)
+        if (data['type']?.toString() == 'TAGIHAN') {
+          continue;
+        }
+
+        for (var tariff in tariffs) {
+          if (tariff['type']?.toString() == 'Harian') {
+            final tariffId = tariff['id']?.toString() ?? '';
+            final start = getEffectiveStartDate(tariff);
+            final startDay = DateTime(start.year, start.month, start.day);
+
+            DateTime? scanDate;
+            if (data['date'] != null && data['date'].toString().isNotEmpty) {
+              scanDate = DateTime.tryParse(data['date'].toString())?.toLocal();
+            } else if (data['timestamp'] != null) {
+              scanDate = DateTime.tryParse(data['timestamp'].toString())?.toLocal();
+            } else if (data['createdAt'] != null) {
+              final raw = data['createdAt'];
+              if (raw is String) {
+                scanDate = DateTime.tryParse(raw)?.toLocal();
+              } else if (raw is int) {
+                scanDate = DateTime.fromMillisecondsSinceEpoch(raw);
+              }
+            }
+            if (scanDate != null) {
+              final scanDay = DateTime(scanDate.year, scanDate.month, scanDate.day);
+              if (scanDay.isBefore(startDay)) {
+                continue;
+              }
+            }
+
+            final amount = (data['amount'] as num?)?.toInt() ?? 0;
+            payments[tariffId] = (payments[tariffId] ?? 0) + amount;
+          }
+        }
       }
 
       int calculateExpectedTotal(

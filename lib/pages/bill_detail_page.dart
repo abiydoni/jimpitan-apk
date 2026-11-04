@@ -141,9 +141,37 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
         final tariffId = data['tariffId']?.toString() ?? '';
         final amount = (data['amount'] as num?)?.toInt() ?? 0;
         if (tariffId.isEmpty) continue;
-        newPayments[tariffId] = (newPayments[tariffId] ?? 0) + amount;
+
         if (newPaymentHistory[tariffId] == null) newPaymentHistory[tariffId] = [];
         newPaymentHistory[tariffId]!.add(data);
+
+        // Jangan masukkan pembayaran periode sebelum tanggal efektif ke sisa tagihan aktif
+        final matchedTariff = newTariffs.firstWhere(
+          (t) => t['id']?.toString() == tariffId,
+          orElse: () => {},
+        );
+        if (matchedTariff.isNotEmpty) {
+          final start = _resolveEffectiveStartDate(matchedTariff, newVillageStartDate ?? widget.startDate, newUserData ?? widget.userData);
+          final startDay = DateTime(start.year, start.month, start.day);
+
+          final periodStr = data['period']?.toString() ?? '';
+          if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(periodStr)) {
+            final pDate = DateTime.tryParse(periodStr);
+            if (pDate != null && DateTime(pDate.year, pDate.month, pDate.day).isBefore(startDay)) {
+              continue;
+            }
+          } else if (RegExp(r'^\d{4}-\d{2}$').hasMatch(periodStr)) {
+            final parts = periodStr.split('-');
+            final pYear = int.tryParse(parts[0]) ?? 0;
+            final pMonth = int.tryParse(parts[1]) ?? 0;
+            final monthEnd = DateTime(pYear, pMonth + 1, 0, 23, 59, 59);
+            if (monthEnd.isBefore(startDay)) {
+              continue;
+            }
+          }
+        }
+
+        newPayments[tariffId] = (newPayments[tariffId] ?? 0) + amount;
       }
 
       // 4. Juga baca jimpitan_history untuk tarif harian scan QR
@@ -170,11 +198,32 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
           if (tType == 'Harian') {
             final tariffId = tariff['id']?.toString() ?? '';
             final amount = (data['amount'] as num?)?.toInt() ?? 0;
-            newPayments[tariffId] = (newPayments[tariffId] ?? 0) + amount;
+
             if (newPaymentHistory[tariffId] == null) {
               newPaymentHistory[tariffId] = [];
             }
             newPaymentHistory[tariffId]!.add(data);
+
+            final start = _resolveEffectiveStartDate(tariff, newVillageStartDate ?? widget.startDate, newUserData ?? widget.userData);
+            final startDay = DateTime(start.year, start.month, start.day);
+
+            DateTime? scanDate;
+            if (data['date'] != null && data['date'].toString().isNotEmpty) {
+              scanDate = DateTime.tryParse(data['date'].toString())?.toLocal();
+            } else if (data['timestamp'] != null) {
+              scanDate = DateTime.tryParse(data['timestamp'].toString())?.toLocal();
+            } else if (data['createdAt'] != null) {
+              scanDate = _parseDate(data['createdAt']);
+            }
+
+            if (scanDate != null) {
+              final scanDay = DateTime(scanDate.year, scanDate.month, scanDate.day);
+              if (scanDay.isBefore(startDay)) {
+                continue; // Scan sebelum tanggal efektif tidak dihitung ke pembayaran aktif
+              }
+            }
+
+            newPayments[tariffId] = (newPayments[tariffId] ?? 0) + amount;
           }
         }
       }
@@ -203,12 +252,15 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
     }
   }
 
-  DateTime _getEffectiveStartDate(Map<String, dynamic> tariff) {
-    DateTime effective = _freshVillageStartDate ?? widget.startDate;
+  DateTime _resolveEffectiveStartDate(
+    Map<String, dynamic> tariff,
+    DateTime villageStart,
+    Map<String, dynamic>? userData,
+  ) {
+    DateTime effective = villageStart;
 
-    final currentUserData = _freshUserData ?? widget.userData;
-    if (currentUserData != null && currentUserData['createdAt'] != null) {
-      final uCreated = currentUserData['createdAt'];
+    if (userData != null && userData['createdAt'] != null) {
+      final uCreated = userData['createdAt'];
       DateTime? uDate;
       if (uCreated is String) {
         uDate = DateTime.tryParse(uCreated)?.toLocal();
@@ -234,6 +286,14 @@ class _BillDetailPageState extends State<BillDetailPage> with RouteAware {
       }
     }
     return effective;
+  }
+
+  DateTime _getEffectiveStartDate(Map<String, dynamic> tariff) {
+    return _resolveEffectiveStartDate(
+      tariff,
+      _freshVillageStartDate ?? widget.startDate,
+      _freshUserData ?? widget.userData,
+    );
   }
 
   /// Returns effective start date AND its source label

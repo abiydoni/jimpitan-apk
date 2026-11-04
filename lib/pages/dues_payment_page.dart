@@ -1171,7 +1171,28 @@ class _DuesPaymentPageState extends State<DuesPaymentPage> {
                       today.difference(start).inDays + 1; // +1 to include today
                   expected = (days > 0 ? days : 0) * amount;
                 }
-                int jimpitanPaid = jimpitanDocs.fold<int>(
+                int jimpitanPaid = jimpitanDocs.where((doc) {
+                  final map = doc as Map<String, dynamic>;
+                  DateTime? dt;
+                  if (map['date'] != null && map['date'].toString().isNotEmpty) {
+                    dt = DateTime.tryParse(map['date'].toString())?.toLocal();
+                  } else if (map['timestamp'] != null) {
+                    dt = DateTime.tryParse(map['timestamp'].toString())?.toLocal();
+                  } else if (map['createdAt'] != null) {
+                    final raw = map['createdAt'];
+                    if (raw is String) {
+                      dt = DateTime.tryParse(raw)?.toLocal();
+                    } else if (raw is int) {
+                      dt = DateTime.fromMillisecondsSinceEpoch(raw);
+                    }
+                  }
+                  if (dt == null || _tariffCreatedAt == null) {
+                    return true;
+                  }
+                  final scanDay = DateTime(dt.year, dt.month, dt.day);
+                  final startDay = DateTime(_tariffCreatedAt!.year, _tariffCreatedAt!.month, _tariffCreatedAt!.day);
+                  return !scanDay.isBefore(startDay);
+                }).fold<int>(
                   0,
                   (total, doc) =>
                       total +

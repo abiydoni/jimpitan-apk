@@ -18,6 +18,7 @@ import 'package:jimpitan/pages/user_form_page.dart';
 import 'package:jimpitan/utils/resident_pdf_export.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
+import 'package:jimpitan/utils/csv_template_helper.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
 
 class UsersPage extends StatefulWidget {
@@ -195,6 +196,140 @@ class _UsersPageState extends State<UsersPage> {
       (_) => chars[rand.nextInt(chars.length)],
     ).join();
     return 'JMP$suffix';
+  }
+
+  void _showImportCsvDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.upload_file, color: AppTheme.primaryColor, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Import Data Warga (CSV)',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Tambah atau perbarui data warga secara massal',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 18, color: Colors.amber.shade900),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Pastikan kolom CSV sesuai template: No KK, NIK, dan Nama Lengkap wajib diisi. Kode Rumah otomatis dibuatkan jika dikosongkan.',
+                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: Colors.grey.shade300),
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.file_download_outlined, color: Colors.blue, size: 22),
+                ),
+                title: const Text('Unduh Template CSV', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Gunakan format resmi untuk mengisi data warga', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await CsvTemplateHelper.downloadTemplate(context);
+                },
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                ),
+                tileColor: AppTheme.primaryColor.withValues(alpha: 0.05),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.file_open_rounded, color: AppTheme.primaryColor, size: 22),
+                ),
+                title: Text(
+                  'Pilih File CSV & Mulai Import',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
+                ),
+                subtitle: const Text('Pilih file .csv dari penyimpanan perangkat Anda', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                trailing: Icon(Icons.chevron_right, color: AppTheme.primaryColor),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _importCsv();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _importCsv() async {
@@ -1993,7 +2128,7 @@ class _UsersPageState extends State<UsersPage> {
             if (widget.permissions['create'] == true || widget.currentUserRoles?.contains('SUPER_ADMIN') == true)
               IconButton(
                 icon: const Icon(Icons.upload_file),
-                onPressed: _importCsv,
+                onPressed: _showImportCsvDialog,
                 tooltip: 'Import Data Warga (CSV)',
               ),
             if (widget.permissions['create'] == true || widget.currentUserRoles?.contains('SUPER_ADMIN') == true)

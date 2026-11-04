@@ -8,6 +8,8 @@ import 'package:jimpitan/widgets/app_modal_dialog.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:jimpitan/main.dart'; // import routeObserver
 import 'dues_payment_page.dart';
+import 'paid_kk_list_page.dart';
+import 'package:jimpitan/utils/dues_status_helper.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
 import 'package:jimpitan/widgets/user_avatar.dart';
 
@@ -400,6 +402,28 @@ class _DuesKkListPageState extends State<DuesKkListPage>
         actions: [
           IconButton(
             icon: const Icon(
+              Icons.receipt_long,
+              size: 24,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PaidKkListPage(
+                    villageId: widget.villageId,
+                    tariffId: widget.tariffId,
+                    tariffData: widget.tariffData,
+                    currentUserRoles: widget.currentUserRoles,
+                    permissions: widget.permissions,
+                  ),
+                ),
+              );
+            },
+            tooltip: 'Lihat KK Bayar Bulan Ini',
+          ),
+          IconButton(
+            icon: const Icon(
               Icons.share_rounded,
               size: 24,
               color: Colors.white,
@@ -468,10 +492,88 @@ class _DuesKkListPageState extends State<DuesKkListPage>
           ),
         ),
 
+        // Tombol Banner KK Bayar Bulan Ini
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PaidKkListPage(
+                    villageId: widget.villageId,
+                    tariffId: widget.tariffId,
+                    tariffData: widget.tariffData,
+                    currentUserRoles: widget.currentUserRoles,
+                    permissions: widget.permissions,
+                  ),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.receipt_long,
+                      color: AppTheme.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'KK Membayar Bulan Ini',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Ketuk untuk melihat daftar KK yang sudah membayar',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: AppTheme.primaryColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
         // List of Warga
         Expanded(
           child: FutureBuilder<List<dynamic>>(
-            future: _usersFuture,
+            future: Future.wait([_usersFuture, _journalsFuture]),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -483,7 +585,9 @@ class _DuesKkListPageState extends State<DuesKkListPage>
                 );
               }
 
-              var users = snapshot.data ?? [];
+              final List<dynamic> usersData = snapshot.data?[0] as List<dynamic>? ?? [];
+              final List<dynamic> allJournals = snapshot.data?[1] as List<dynamic>? ?? [];
+              var users = usersData;
 
               // Sembunyikan SUPER_ADMIN
               users = users.where((data) {
@@ -639,12 +743,77 @@ class _DuesKkListPageState extends State<DuesKkListPage>
                               fontSize: 13,
                             ),
                           ),
-                          trailing: isExempted
-                              ? null
-                              : const Icon(
-                                  Icons.chevron_right,
-                                  color: Colors.grey,
-                                ),
+                          trailing: Builder(
+                            builder: (context) {
+                              final tariffType = (widget.tariffData['type'] ?? 'Bulanan').toString();
+                              final expectedAmount = (widget.tariffData['amount'] as num?)?.toInt() ?? 0;
+                              final currentYear = DateTime.now().year;
+
+                              final kkJournals = allJournals.where((j) {
+                                if (j['tariffId'] != widget.tariffId) return false;
+                                final cat = (j['category'] ?? '').toString();
+                                final jt = (j['journalType'] ?? '').toString();
+                                if (!cat.contains('INCOME') && jt != 'KHUSUS') return false;
+                                final k = (j['kkId'] ?? '').toString();
+                                return k == familyId || k == noKkStr || k == oldCodeStr || k == uidStr;
+                              }).toList();
+
+                              final status = DuesStatusHelper.getKkStatus(
+                                tariffType: tariffType,
+                                expectedAmount: expectedAmount,
+                                year: currentYear,
+                                kkJournals: kkJournals,
+                                isExempted: isExempted,
+                              );
+
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (status != null && !isExempted)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: status == 'Lunas'
+                                            ? Colors.green.withValues(alpha: 0.1)
+                                            : Colors.orange.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: status == 'Lunas'
+                                              ? Colors.green.withValues(alpha: 0.3)
+                                              : Colors.orange.withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            status == 'Lunas' ? Icons.check_circle : Icons.schedule,
+                                            size: 12,
+                                            color: status == 'Lunas' ? Colors.green : Colors.orange.shade800,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            status,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: status == 'Lunas' ? Colors.green : Colors.orange.shade800,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (!isExempted) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      color: Colors.grey,
+                                    ),
+                                  ],
+                                ],
+                              );
+                            },
+                          ),
                           onTap: isExempted
                               ? null
                               : () async {

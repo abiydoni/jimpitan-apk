@@ -4,43 +4,18 @@ import 'package:jimpitan/utils/app_theme.dart';
 import 'package:jimpitan/utils/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'dart:convert';
 import 'package:flutter/services.dart';
 
-import 'package:file_saver/file_saver.dart';
 import 'package:jimpitan/utils/custom_toast.dart';
 import 'package:jimpitan/widgets/help_subscription_status_widget.dart';
+import 'package:jimpitan/utils/csv_template_helper.dart';
 
 class HelpPage extends StatelessWidget {
   final String? villageId;
   const HelpPage({super.key, this.villageId});
 
   void _downloadCsvTemplate(BuildContext context) async {
-    try {
-      final String csvHeader =
-          "No KK,NIK,Nama Lengkap,Status Hubungan,Status Perkawinan,Jenis Kelamin,Tempat Lahir,Tanggal Lahir,Alamat,Agama,Pekerjaan,Status Hidup,Email,No HP,Jabatan,Kode Rumah\n";
-      final String sampleData =
-          "3270123456789012,3270000000000001,Budi Santoso,Kepala Keluarga,Kawin,Laki-laki,Jakarta,1980-01-01,Jl. Merdeka No 1,Islam,Karyawan Swasta,Aktif,budi@email.com,08123456789,WARGA,\n"
-          "3270123456789012,3270000000000002,Siti Aminah,Istri,Kawin,Perempuan,Bandung,1982-02-02,Jl. Merdeka No 1,Islam,Mengurus Rumah Tangga,Aktif,siti@email.com,08129876543,WARGA,\n";
-
-      final String csvContent = csvHeader + sampleData;
-      // Convert to Uint8List for file_saver
-      final List<int> utf8Bytes = utf8.encode(csvContent);
-      final Uint8List bytes = Uint8List.fromList(utf8Bytes);
-
-      await FileSaver.instance.saveFile(
-        name: 'template_import_warga',
-        bytes: bytes,
-        fileExtension: 'csv',
-        mimeType: MimeType.csv,
-      );
-
-      if (!context.mounted) return;
-      CustomToast.show(context, 'Template CSV sedang diunduh/dibuka...');
-    } catch (e) {
-      if (!context.mounted) return;
-      CustomToast.show(context, 'Gagal mengunduh template: $e', isError: true);
-    }
+    await CsvTemplateHelper.downloadTemplate(context);
   }
 
   @override
